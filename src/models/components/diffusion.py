@@ -10,30 +10,6 @@ from torch import Tensor
 from .distribution import Distribution
 from .utils import extend_dim, clip, to_batch
 
-class VanillaDiffusion(nn.Module):
-    """Vanilla diffusion class"""
-    # predict noise
-
-    def __init__(self, num_steps: int):
-        super().__init__()
-        self.num_steps = num_steps
-
-    def forward(self, x: torch.Tensor, fn: Callable, noise_level: torch.Tensor):
-        # predict noise
-
-        batch_size = x.shape[0]
-        t = torch.randint(self.num_steps, [batch_size], device=x.device)
-        noise_scale = noise_level[t].unsqueeze(1)
-        noise_scale_sqrt = noise_scale ** 0.5
-        noise = torch.randn_like(x).to(x.device)
-        noisy_audio = noise_scale_sqrt * x + (1.0 - noise_scale)**0.5 * noise
-        
-        predicted = fn(noisy_audio, t)
-
-        losses = F.mse_loss(predicted.squeeze(1), noise, reduction="mean") 
-
-        return losses
-
 class EluDiffusion(nn.Module):
     """Elucidated Diffusion Models(EDM): https://arxiv.org/abs/2206.00364"""
 
@@ -127,53 +103,6 @@ class EluDiffusion(nn.Module):
         losses = reduce(losses, "b ... -> b", "sum")
         losses = losses * self.loss_weight(sigmas) / torch.sum(x_mask)
         losses = losses.mean()
-
-        return losses
-
-class VDiffusion(nn.Module):
-
-    alias = "v"
-
-    def __init__(self):
-        super().__init__()
-
-    def get_alpha_beta(self, sigmas: Tensor) -> Tuple[Tensor, Tensor]:
-        angle = sigmas * pi / 2
-        alpha, beta = torch.cos(angle), torch.sin(angle)
-        return alpha, beta
-    
-    def denoise_fn(self):
-        pass
-
-    def forward(self, x: Tensor, 
-                x_classes: Tensor,
-                net: nn.Module, 
-                sigma_distribution: Distribution, 
-                x_mask: Tensor = None,
-                inference: bool = False,
-                **kwargs) -> Tensor:
-        
-        batch_size, device = x.shape[0], x.device
-        
-        if x_mask is None:
-            x_mask = torch.ones_like(x)
-
-        # Sample amount of noise to add for each batch element
-        sigmas = sigma_distribution(num_samples=batch_size, device=device)
-        sigmas_batch = extend_dim(sigmas, dim=x.ndim)
-        
-        # Combine input and noise weighted by half-circle
-        alphas, betas = self.get_alpha_beta(sigmas_batch)
-
-        # Get noise
-        noise = torch.randn_like(x) * x_mask
-
-        # Compute denoised values
-        x_noisy = alphas * x + betas * noise
-        v_pred = net(x_noisy, sigmas, x_classes, x_mask=x_mask, **kwargs)
-        v_target = alphas * noise - betas * x
-        losses = F.mse_loss(v_pred, v_target, reduction="sum")
-        losses = losses / torch.sum(x_mask)
 
         return losses
 
