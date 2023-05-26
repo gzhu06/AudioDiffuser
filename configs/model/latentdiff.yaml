@@ -1,0 +1,46 @@
+_target_: src.models.latentdiffusion_module.LatentDiffusionModule
+
+use_ema: False
+ema_beta: 0.9999
+ema_power: 0.7
+generated_sample_length: 16384
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1e-4
+  betas : [0.9, 0.99]
+  
+scheduler: null
+
+net:
+  _target_: src.models.components.backbones.unet1d.UNet1dBase
+  num_filters: 128
+  window_length: 32
+  stride: 16
+  channels : 64
+  in_channels: 1
+  resnet_groups : 8
+  kernel_multiplier_downsample : 2
+  multipliers : [1,2,4,4,4,4,4]
+  factors : [4,4,4,2,2,2]
+  num_blocks : [2,2,2,2,2,2]
+  attentions : [False,False,False,True,True,True]
+  attention_heads : 8
+  attention_features : 64
+  attention_multiplier : 2
+  use_nearest_upsample : True
+  use_skip_scale : True
+  use_attention_bottleneck : True
+
+diffusion:
+  _target_: src.models.components.diffusion.EluDiffusion
+  
+sampler:
+  _target_: src.models.components.sampler.ADPM2Sampler
+
+noise_distribution:
+  _target_: src.models.components.distribution.LogNormalDistribution
+
+noise_scheduler:
+  _target_: src.models.components.scheduler.KarrasSchedule

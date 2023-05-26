@@ -1,0 +1,6 @@
+_target_: src.datamodules.percussion_modal_datamodule.PercussionDataModule
+data_dir: ${paths.data_dir}/percussion_demo/
+batch_size: 8
+num_workers: 8
+pin_memory: False
+training_stage: 0

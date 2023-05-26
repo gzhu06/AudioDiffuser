@@ -1,0 +1,33 @@
+_target_: src.models.diffwave_module.DiffwaveModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 2e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+net:
+  _target_: src.models.components.backbones.wavenet.WaveNetNoise
+  residual_layers: 36
+  residual_channels: 192
+  dilation_cycle: 12
+  
+sampler:
+  _target_: src.models.components.sampler.VanillaSampler
+
+noise_scheduler:
+  _target_: src.models.components.scheduler.LinearSchedule
+  beta_min: 1e-4 
+  beta_max: 0.02
+  num_steps: 200
+
+diffusion:
+  _target_: src.models.components.diffusion.VanillaDiffusion
+  num_steps: 200

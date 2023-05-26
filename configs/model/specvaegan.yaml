@@ -1,0 +1,42 @@
+_target_: src.models.specvaegan_module.SpecVAEGANModule
+
+use_ema: False
+ema_beta: 0.9999
+ema_power: 0.7
+sample_rate: 16000
+apply_grad_penalty: False
+accum_grads: 4
+n_fft: 1024
+hop_length: 256
+n_mels: 80
+stft_normalized: True
+
+optimizer_gener:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  betas : [0.95, 0.999]
+  eps: 1e-6
+  weight_decay: 1e-3
+  
+optimizer_discr:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  betas : [0.95, 0.999]
+  eps: 1e-6
+  weight_decay: 1e-3
+  
+scheduler: null
+  
+autoencoder:
+  _target_: src.models.components.backbones.specautoencoder.SpecAutoEncoder
+  
+discriminator:
+  _target_: src.models.components.backbones.specautoencoder.NLayerDiscriminator
+
+bottleneck:
+- _target_: src.models.components.backbones.bottleneck.VariationalBottleneck
+  channels: 512
+  dim: 2
+      

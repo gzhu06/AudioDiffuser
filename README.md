@@ -83,6 +83,7 @@ CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precis
 - [ ] consistency models
 - [ ] applications: vocoder, super-resolution, speech enhancement and source separation
 - [ ] rvq-vae (code is done, need to be verified with larger machines)
+- [ ] sc09 evaluation
 - [ ] ViT transformer backbone (?)
 - [ ] discrete diffusion
 
@@ -96,7 +97,7 @@ CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precis
 - Diffusion: ADM sampling
 
 ### Generation Evaulation
-We compare different frameworks by testing on sc09 dataset using [unconditional audio generation benchmark repo](https://github.com/gzhu06/Unconditional-Audio-Generation-Benchmark).
+We compare different frameworks by testing on sc09 dataset using [unconditional audio generation benchmark repo](https://github.com/gzhu06/Unconditional-Audio-Generation-Benchmark). 
 
 ## Notebooks
 

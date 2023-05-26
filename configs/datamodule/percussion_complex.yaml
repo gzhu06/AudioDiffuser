@@ -1,0 +1,10 @@
+_target_: src.datamodules.percussion_complex_datamodule.PercussionDataModule
+data_dir: ${paths.data_dir}/percussion
+num_workers: 8
+pin_memory: False
+batch_size: 12
+spec_factor: 0.3
+spec_abs_exponent: 0.5
+hop_length: 256
+num_frames: 256
+n_fft: 1022

@@ -1,0 +1,60 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /datamodule: medleydb.yaml
+  - override /model: diffunet.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["medleydb", "diffunet", "conditional"]
+num_classes : 8
+num_steps: 100
+audio_len: 65536
+
+seed: 12345
+
+trainer:
+  min_epochs: 1600
+  max_epochs: 1600
+
+model:
+  use_ema: False
+  total_test_samples: 512
+  audio_sample_rate: 44100
+  generated_sample_length: 65536
+  generated_sample_class: ${num_classes}
+  net:
+    _target_: src.models.components.unet1d.UNet1dCFG
+    num_classes: ${num_classes}
+    cond_drop_prob: 0.1
+    stride: 8
+    num_filters: 128
+    window_length: 16
+    use_nearest_upsample: False
+  diffusion:
+    sigma_data : 0.2
+    dynamic_threshold : 0.0
+  sampler:
+    rho: 1.0
+    num_steps: ${num_steps}
+    cond_scale: 12.0
+  noise_scheduler:
+    sigma_min : 0.0001
+    sigma_max : 3.0 
+    rho : 9.0
+    num_steps : ${num_steps}
+  noise_distribution:
+    mean : -3.0 
+    std : 1.0
+
+datamodule:
+  batch_size: 24
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "diffaudio"

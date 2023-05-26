@@ -1,0 +1,75 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /datamodule: sc09.yaml
+  - override /model: latentdiff.yaml
+  - override /callbacks: custom_exp2.yaml
+  - override /trainer: gpu.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["sc09", "latentdiffusion", "conditional"]
+audio_len: 16384
+num_classes : 10
+num_steps: 50
+autoencoder_path: '/home/ge/github-repo/DiffAudioSynthesizer/logs/eval/runs/2023-02-28_16-24-11/tensorboard'
+
+seed: 12345
+
+trainer:
+  min_epochs: 1600
+  max_epochs: 1600
+
+model:
+  use_ema: False
+  audio_sample_rate: 16000
+  generated_sample_length: ${audio_len}
+  generated_sample_class: ${num_classes}
+  autoencoder_path: ${autoencoder_path}
+  autoencoder_latent_scale: 0.1
+  net:
+    _target_: src.models.components.backbones.unet1d.UNet1dCFG
+    num_classes: ${num_classes}
+    cond_drop_prob: 0.1
+    stride: 1
+    in_channels: 32
+    channels: 128
+    num_filters: 4 # in_channels * num_filters == channels
+    window_length: 3
+    kernel_multiplier_downsample: 2
+    multipliers: [1, 2, 2, 2, 2, 2]
+    factors: [1, 2, 2, 2, 2]
+    num_blocks: [2, 2, 2, 2, 2]
+    attentions: [False,True,True,True,True]
+    attention_heads: 8
+    attention_features: 64
+    attention_multiplier: 2
+    use_nearest_upsample: False
+    use_skip_scale: True
+  diffusion:
+    sigma_data : 0.1
+    dynamic_threshold : 0.0
+  noise_distribution:
+    mean : -3.0 
+    std : 1.0
+  sampler:
+    rho: 1.0
+    num_steps: ${num_steps}
+  noise_scheduler:
+    sigma_min : 0.0001
+    sigma_max : 3.0 
+    rho : 9.0
+    num_steps : 50
+
+datamodule:
+  batch_size: 128
+  audio_len: ${audio_len}
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "latentdiffaudio"

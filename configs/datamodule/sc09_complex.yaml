@@ -1,0 +1,10 @@
+_target_: src.datamodules.sc09_complex_datamodule.SC09DataModule
+data_dir: ${paths.data_dir}/sc09
+batch_size: 4
+num_workers: 8
+pin_memory: False
+spec_factor: 0.3
+spec_abs_exponent: 0.5
+hop_length: 128
+num_frames: 128
+n_fft: 510

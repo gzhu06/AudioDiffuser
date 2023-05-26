@@ -1,0 +1,58 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /datamodule: percussion.yaml
+  - override /model: diffmaskunet.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["percussion", "diffunet", "conditional"]
+audio_len: 131072
+num_classes : 9
+num_steps: 100
+
+seed: 12345
+
+trainer:
+  min_epochs: 1600
+  max_epochs: 1600
+
+model:
+  use_ema: False
+  audio_sample_rate: 44100
+  generated_sample_length: 131072
+  generated_sample_class: ${num_classes}
+  max_audio_length: ${audio_len}
+  total_test_samples: 128
+  net:
+    _target_: src.models.components.backbones.masked_unet1d.UNet1dCFG
+    num_classes: ${num_classes}
+    cond_drop_prob: 0.1
+    stride: 16
+    num_filters: 128
+    window_length: 32
+    use_nearest_upsample: False
+  diffusion:
+    _target_: src.models.components.diffusion.VDiffusion
+  noise_distribution:
+    _target_: src.models.components.distribution.UniformDistribution
+  sampler:
+    _target_: src.models.components.sampler.VSampler
+    num_steps: ${num_steps}
+    cond_scale: 9.0
+  noise_scheduler:
+    _target_: src.models.components.scheduler.LinearSchedule
+    num_steps: ${num_steps}
+
+datamodule:
+  batch_size: 36
+  audio_len: ${audio_len}
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "diffaudio"

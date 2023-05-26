@@ -1,0 +1,6 @@
+_target_: src.datamodules.percussion_datamodule.PercussionDataModule
+data_dir: ${paths.data_dir}/percussion
+audio_len: 262144
+batch_size: 8
+num_workers: 8
+pin_memory: False

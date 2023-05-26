@@ -1,0 +1,93 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /datamodule: percussion.yaml
+  - override /model: diffae.yaml
+  - override /callbacks: custom_exp2.yaml
+  - override /trainer: gpu.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["percussion", "diffae", "unconditional"]
+num_classes : 10
+seed: 12345
+audio_len: 65536
+
+trainer:
+  min_epochs: 6400
+  max_epochs: 6400
+
+model:
+  use_ema: False
+  sample_rate: 44100
+  reconstructed_sample_length: ${audio_len}
+  optimizer:
+    lr: 4e-5
+  net:
+    _target_: src.models.components.backbones.diff_autoencoder.DiffAutoEncoder
+    stride: 8
+    num_filters: 128
+    window_length: 32
+    channels : 128
+    in_channels: 1
+    resnet_groups : 8
+    kernel_multiplier_downsample : 2
+    multipliers : [1,4,4,4,4,4,4]
+    factors : [4,2,2,2,2,2]
+    num_blocks : [2,2,2,2,2,2]
+    attentions : [False,False,False,True,True,True]
+    attention_heads : 8
+    attention_features : 64
+    attention_multiplier : 2
+    use_nearest_upsample : True
+    use_skip_scale : True
+    use_attention_bottleneck : True
+
+  encoder:
+    - _target_: src.models.components.backbones.diff_autoencoder.ConditionEncoder
+      mel_channels: 80
+      mel_n_fft: 2048
+      mel_hop_length: 512
+      mel_win_length: 2048
+      channels: 128
+      multipliers: [1,4,4,4,4,4,4]
+      factors: [1,1,2,2,1,1]
+      num_blocks: [2,2,2,2,2,2]
+      attentions: [False,False,False,True,True,True]
+      attention_heads: 8
+      attention_features: 64
+      attention_multiplier: 2
+      resnet_groups: 8
+      kernel_multiplier_downsample: 2
+      use_attention_bottleneck: True
+      output_embeddings: True
+
+  diffusion:
+    sigma_data : 0.2
+    dynamic_threshold : 0.0
+  noise_distribution:
+    mean : -3.0 
+    std : 1.0
+  sampler:
+    rho: 1.0
+    num_steps: 50
+    cond_scale: 9.0
+  noise_scheduler:
+    sigma_min : 0.0001
+    sigma_max : 3.0 
+    rho : 9.0
+    num_steps : 50
+
+datamodule:
+  data_dir: ${paths.data_dir}/percussion
+  batch_size: 16
+  audio_len: ${audio_len}
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "diffaudio"
