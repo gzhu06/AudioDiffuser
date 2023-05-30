@@ -1,5 +1,0 @@
-_target_: src.datamodules.medleydb_datamodule.MedleyDBDataModule
-data_dir: ${paths.data_dir}/medleydb
-batch_size: 4
-num_workers: 8
-pin_memory: False

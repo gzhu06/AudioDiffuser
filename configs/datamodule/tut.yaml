@@ -1,6 +1,0 @@
-_target_: src.datamodules.TUT_datamodule.TUTDataModule
-data_dir: ${paths.data_dir}/TUT
-audio_len: 266144
-batch_size: 4
-num_workers: 8
-pin_memory: False

@@ -16,24 +16,6 @@ This repository uses hydra-lightning config management which provides an easy-to
 In the application side, the diffusion process can be shared across different tasks, we will try to cover various audio based applications.
 Additionally, this repo can be used as a learning resource for diffusion models. It includes detailed docstrings linked to the paper, comments, and notebooks for introducing diffusion models both theoretically and practically.
 
-## Diffusion components
-In this repo, we mainly use the desnoising score matching formulation discussed in [EDM](https://github.com/NVlabs/edm) for consistency based on [Audio Diffusion by Flavio](https://github.com/archinetai/audio-diffusion-pytorch). In EDM, a common framework is proposed for many diffusion models and decouples the design of sampling schedule, noise level parameterization etc.
-
-### 1.Diffusion
-
-### 2.Sampler
-
-### 3.Scheduler
-
-### 4.Backbones
-
-### 5.Applications
-Speech enhancement
-Super resolution
-source separation
-vocoder
-super-resolution
-
 
 ## How to run
 
@@ -41,8 +23,8 @@ super-resolution
 
 ```bash
 # clone project
-git clone https://github.com/gzhu06/DiffAudioSynthesizer
-cd DiffAudioSynthesizer
+git clone https://github.com/gzhu06/AudioDiffuser
+cd AudioDiffuser
 
 # [OPTIONAL] create conda environment
 conda create -n diffaudio python=3.8
@@ -76,6 +58,35 @@ Or evaluation:
 ```bash
 CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precision=16 experiment=example2.yaml
 ```
+
+## Examples
+We list implemented "essential oil" for the audio diffuser. 
+
+| **Model**   | **Dataset**|**Pytorch-lightning Script** |**Config** |
+|-------------------|--------------------------|--------------------------|
+| VQ-GAN|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |vqgan(https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
+
+## Demo Page
+We generate samples (if any) from pretrained models in [example section](## Examples).
+
+
+## Diffusion components
+In this repo, we mainly use the desnoising score matching formulation discussed in [EDM](https://github.com/NVlabs/edm) based on [Audio Diffusion by Flavio](https://github.com/archinetai/audio-diffusion-pytorch). In EDM, a common framework is proposed for many diffusion models and decouples the design of sampling schedule, noise level parameterization etc.
+
+### 1.Diffusion
+
+### 2.Sampler
+
+### 3.Scheduler
+
+### 4.Backbones
+
+### 5.Applications
+Speech enhancement
+Super resolution
+source separation
+vocoder
+super-resolution
 
 # Code TODO
 - [ ] v-objective, x-objective and epsilon (vp, ve) with edm framework
