@@ -41,7 +41,7 @@ def gradient_penalty(wave, output, weight = 10):
 
 class VQGANModule(LightningModule):
     """ 
-    VQ-VAE with GAN, using manual optimization
+    VQ-VAE with GAN. Don't use precision 16 for training.
     """
 
     def __init__(
@@ -368,6 +368,7 @@ class VQGANModule(LightningModule):
             with torch.no_grad():
                 if x_orig.ndim == 2:
                     x_orig = rearrange(x_orig, 'b n -> b 1 n')
+                    
                 torchaudio.save(audio_gt_path, x_orig[0].cpu(), self.sample_rate)
                 torchaudio.save(audio_path, x_recon[0].cpu(), self.sample_rate)
             

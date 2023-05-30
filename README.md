@@ -63,8 +63,8 @@ CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precis
 We list implemented "essential oil" for the audio diffuser. 
 
 | **Model**   | **Dataset**|**Pytorch-lightning Script** |**Config** |
-|-------------------|--------------------------|--------------------------|
-| VQ-GAN|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |vqgan(https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
+|------------|------------|--------------------------|-------------------|
+| VQ-GAN|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |[vqgan1d_vctk.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
 
 ## Demo Page
 We generate samples (if any) from pretrained models in [example section](## Examples).
