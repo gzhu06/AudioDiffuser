@@ -9,6 +9,20 @@
 
 </div>
 
+
+## Table Of Contents
+
+- [Description](#description)
+- [Setup](#setup)
+    * [Install dependencies](#install-dependencies)
+    * [Hydra-lightning](#install-dependencies)
+- [How to run](#how-to-run)
+    * [Run experiment and evaluation](#run-experiment-and-evaluation)
+    * [Examples](#examples)
+    * [Demo page](#demo-page)
+- [Diffusion components](#diffusion-components)
+    * [1.Diffusion](#1diffusion)
+
 ## Description
 
 Diffuser designed for audio using denoising score matching formulation. We have included a collection or (re)implementations of diffusion models, together with VAE, VQ-GAN for various audio applications. 
@@ -17,7 +31,7 @@ In the application side, the diffusion process can be shared across different ta
 Additionally, this repo can be used as a learning resource for diffusion models. It includes detailed docstrings linked to the paper, comments, and notebooks for introducing diffusion models both theoretically and practically.
 
 
-## How to run
+## Setup
 
 ### Install dependencies
 
@@ -38,9 +52,11 @@ pip install -r requirements.txt
 ```
 ### Hydra-lightning
 
-This is a great config management tool and it decouples dataloaders, training, network backbones.
+A config management tool that decouples dataloaders, training, network backbones etc.
 
-### Run
+## How to run
+
+### Run experiment and evaluation
 Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
 
 ```bash ddp mixed precision
@@ -59,7 +75,7 @@ Or evaluation:
 CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precision=16 experiment=example2.yaml
 ```
 
-## Examples
+### Examples
 We list implemented "essential oil" for the audio diffuser. 
 
 | **Model**   | **Dataset**|**Pytorch-lightning Script** |**Config** |
@@ -67,9 +83,8 @@ We list implemented "essential oil" for the audio diffuser.
 |Diff-UNet-Complex | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09.yaml)|
 | VQ-GAN(WIP)|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |[vqgan1d_vctk.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
 
-## Demo Page
+### Demo Page
 We generate samples (if any) from pretrained models in [example section](#examples).
-
 
 ## Diffusion components
 In this repo, we mainly use the desnoising score matching formulation discussed in [EDM](https://github.com/NVlabs/edm) based on [Audio Diffusion by Flavio](https://github.com/archinetai/audio-diffusion-pytorch). In EDM, a common framework is proposed for many diffusion models and decouples the design of sampling schedule, noise level parameterization etc.
@@ -82,14 +97,18 @@ In this repo, we mainly use the desnoising score matching formulation discussed 
 
 ### 4.Backbones
 
-### 5.Applications
+### 5. Generation Evaulation
+We compare different frameworks by testing on sc09 dataset using [unconditional audio generation benchmark repo](https://github.com/gzhu06/Unconditional-Audio-Generation-Benchmark). 
+
+### 6.Other Applications
 Speech enhancement
 Super resolution
 source separation
 vocoder
 super-resolution
 
-# Code TODO
+## TODO
+### Code
 - [ ] v-objective, x-objective and epsilon (vp, ve) with edm framework
 - [ ] DDIM
 - [ ] consistency models
@@ -99,17 +118,15 @@ super-resolution
 - [ ] ViT transformer backbone (?)
 - [ ] discrete diffusion
 
-# Notebooks TODO
+### Notebooks TODO
 - [ ] VDM formulation
 - [ ] Sampler: ADM sampling
 - [ ] Diffusion
 - [ ] Scheduler
 
-# Check TODO
+### Check TODO
 - Diffusion: ADM sampling
 
-### Generation Evaulation
-We compare different frameworks by testing on sc09 dataset using [unconditional audio generation benchmark repo](https://github.com/gzhu06/Unconditional-Audio-Generation-Benchmark). 
 
 ## Notebooks
 
