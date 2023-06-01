@@ -25,10 +25,11 @@
 
 ## Description
 
-Diffuser designed for audio using denoising score matching formulation. We have included a collection or (re)implementations of diffusion models, together with VAE, VQ-GAN for various audio applications. 
-This repository uses hydra-lightning config management which provides an easy-to-use interface for running diffusion-based models. 
-In the application side, the diffusion process can be shared across different tasks, we will try to cover various audio based applications.
-Additionally, this repo can be used as a learning resource for diffusion models. It includes detailed docstrings linked to the paper, comments, and notebooks for introducing diffusion models both theoretically and practically.
+Diffuser designed for audio using denoising score matching formulation. 
+We have included a collection or (re)implementations of diffusion models, together with VAE, VQ-GAN for various audio applications. 
+This repository uses hydra-lightning config management and is suitable for developping new models efficiently.
+Since the diffusion process can be shared across different tasks, we will try to cover various audio based applications.
+Additionally, this repo can be used as a learning resource for diffusion models which includes detailed docstrings linked to the paper, comments, and notebooks for introducing diffusion models both theoretically and practically.
 
 
 ## Setup
@@ -76,10 +77,11 @@ CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precis
 ```
 
 ### Examples
-We list implemented "essential oil" for the audio diffuser. 
+We list implemented "essential oils" for the audio diffuser. 
 
 | **Model**   | **Dataset**|**Pytorch-lightning Script** |**Config** |
 |------------|------------|--------------------------|-------------------|
+|Diff-UNet-Waveform | SC09|[diffunet_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_module.py) | [diffunet_sc09.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_sc09.yaml)|
 |Diff-UNet-Complex | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09.yaml)|
 | VQ-GAN(WIP)|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |[vqgan1d_vctk.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
 
@@ -87,7 +89,7 @@ We list implemented "essential oil" for the audio diffuser.
 We generate samples (if any) from pretrained models in [example section](#examples).
 
 ## Diffusion components
-In this repo, we mainly use the desnoising score matching formulation discussed in [EDM](https://github.com/NVlabs/edm) based on [Audio Diffusion by Flavio](https://github.com/archinetai/audio-diffusion-pytorch). In EDM, a common framework is proposed for many diffusion models and decouples the design of sampling schedule, noise level parameterization etc.
+In this repo, we mainly use the desnoising score matching formulation discussed in [EDM](https://github.com/NVlabs/edm) based on [Audio Diffusion release v0.0.94](https://github.com/archinetai/audio-diffusion-pytorch/releases/tag/v0.0.94). In EDM, a common framework is proposed for many diffusion models and decouples the design of sampling schedule, noise level parameterization etc.
 
 ### 1.Diffusion
 
