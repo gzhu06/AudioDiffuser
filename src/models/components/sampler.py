@@ -3,11 +3,145 @@ from typing import Callable, Tuple, Optional
 from einops import repeat
 import torch
 import torch.nn as nn
+import numpy as np
 from torch import Tensor
 from tqdm import tqdm
 from .utils import extend_dim
 
 """ Samplers """
+
+
+## Sampler helper function
+def sigma_func(beta_d, beta_min, t, sampler='vp'):
+    
+    if sampler == 'vp':
+        return (np.e ** (0.5 * beta_d * (t ** 2) + beta_min * t) - 1) ** 0.5
+    
+    else:
+        pass
+    
+def inv_sigma_func(beta_d, beta_min, t, sampler='vp'):
+    
+    if sampler == 'vp':
+        return (np.e ** (0.5 * beta_d * (t ** 2) + beta_min * t) - 1) ** 0.5
+    else:
+        pass
+    
+def sigma_deriv_func(beta_d, beta_min, t, sampler='vp'):
+    
+    sigma_t = sigma_func(beta_d, beta_min, t, sampler=sampler)
+    
+    if sampler == 'vp':
+        return 0.5 * (beta_min + beta_d * t) * (sigma_t + 1 / sigma_t)
+    else:
+        pass
+
+class VPSampler(nn.Module):
+    """ 
+    EDM version (https://arxiv.org/abs/2206.00364) VP sampler in Algorithm 1:
+    """
+    def __init__(
+        self,
+        beta_d: float = 19.9,
+        beta_min: float = 0.1,
+        epsilon_s: float = 1e-3,
+        s_churn: float = 200.0,
+        s_noise: float = 1.0,
+        s_min: float = 0.0,
+        s_max: float = float('inf'),
+        num_steps: int = 200,
+        cond_scale: float = 1.0,
+    ):
+        super().__init__()
+        self.beta_d = beta_d
+        self.beta_min = beta_min
+        self.epsilon_s = epsilon_s
+        
+        sigma_min = sigma_func(beta_d=self.beta_d, beta_min=self.beta_min, t=epsilon_s)
+        sigma_max = sigma_func(beta_d=self.beta_d, beta_min=self.beta_min, t=1)
+        
+        # Compute corresponding betas for VP.
+        self.vp_beta_d = 2 * (np.log(sigma_min**2 + 1) / self.epsilon_s - np.log(sigma_max ** 2 + 1))/(self.epsilon_s - 1)
+        self.vp_beta_min = np.log(sigma_max ** 2 + 1) - 0.5 * self.vp_beta_d
+        
+        self.s_noise = s_noise
+        self.s_churn = s_churn
+        self.s_min = s_min
+        self.s_max = s_max
+        self.num_steps = num_steps
+        self.cond_scale = cond_scale
+        
+    def t_to_sigma(self, t):
+        return sigma_func(self.vp_beta_d, self.vp_beta_min, t)
+        
+    def sigma_to_t(self, sigma):
+        return inv_sigma_func(self.vp_beta_d, self.vp_beta_min, sigma)
+    
+    def sigma_deriv(self, t):
+        return sigma_deriv_func(self.vp_beta_d, self.vp_beta_min, t)
+    
+    def scale(self, t):
+        sigma_t = self.t_to_sigma(t)
+        return 1 / (1 + sigma_t ** 2).sqrt()
+    
+    def scale_deriv(self, t):
+        return -self.t_to_sigma(t) * self.sigma_deriv(t) * (self.scale(t) ** 3)
+        
+    def step(self, x: Tensor, 
+             x_classes: Tensor, 
+             fn: Callable, net: nn.Module, 
+             t: float, t_next: float, 
+             gamma: float, x_mask: Tensor=None, 
+             use_heun: bool=True, **kwargs) -> Tensor:
+        
+        epsilon = self.s_noise * torch.randn_like(x)
+
+        # Increase noise temporarily.
+        t_hat = self.sigma_to_t((self.t_to_sigma(t) + gamma * self.t_to_sigma(t)))
+        x_hat = self.scale(t_hat) / self.scale(t) * x + (self.t_to_sigma(t_hat) ** 2 - self.t_to_sigma(t) ** 2).clip(min=0).sqrt() * self.scale(t_hat) * epsilon
+
+        # Euler step.
+        denoised_cur = fn(x_hat/self.scale(t_hat), x_classes, 
+                          net=net, sigma=self.t_to_sigma(t_hat), 
+                          inference=True, cond_scale=self.cond_scale, 
+                          x_mask=x_mask, **kwargs)
+        
+        d = (self.sigma_deriv(t_hat)/self.t_to_sigma(t_hat) + self.scale_deriv(t_hat)/self.scale(t_hat))*x_hat - self.sigma_deriv(t_hat) * self.scale(t_hat) / self.t_to_sigma(t_hat) * denoised_cur
+
+        x_next = x_hat + (t_next - t_hat) * d
+        
+        # Apply 2nd order correction.
+#         if sigma_next != 0 and use_heun:
+        
+        return x_next
+        
+    def forward(self, noise: Tensor, 
+                x_classes: Tensor, 
+                fn: Callable, 
+                net: nn.Module, 
+                sigmas: Tensor, # actually t
+                use_heun: bool=True,
+                **kwargs) -> Tensor:
+
+        orig_t_steps = sigmas
+        sigmas = self.t_to_sigma(orig_t_steps)
+
+        t_steps = self.sigma_to_t(sigmas)
+        t_steps = torch.cat([t_steps, torch.zeros_like(t_steps[:1])]) # t_N = 0
+        
+        x = noise * self.t_to_sigma(t_steps[0]) * self.scale(t_steps[0])
+        for i in range(self.num_steps-1):
+            
+            gamma = min(self.s_churn/self.num_steps, np.sqrt(2)-1) if self.s_min<=self.t_to_sigma(t_steps[i])<=self.s_max else 0
+            
+            x = self.step(x, x_classes, 
+                          fn=fn, net=net, 
+                          t=t_steps[i], 
+                          t_next=t_steps[i+1], 
+                          gamma=gamma, 
+                          use_heun=use_heun, 
+                          **kwargs)
+        return x
 
 class EDMSampler(nn.Module):
     """ 

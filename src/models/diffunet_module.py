@@ -65,7 +65,7 @@ class DiffUnetModule(LightningModule):
         audio = x['audio'].unsqueeze(1)
         audio_classes = x['label'] # kwargs
         loss = self.diffusion(audio, audio_classes, self.net, 
-                              sigma_distribution=self.noise_distribution)
+                              distribution=self.noise_distribution)
         return loss
 
     def on_train_start(self):
