@@ -10,32 +10,6 @@ from .utils import extend_dim
 
 """ Samplers """
 
-
-## Sampler helper function
-def sigma_func(beta_d, beta_min, t, sampler='vp'):
-    
-    if sampler == 'vp':
-        return (np.e ** (0.5 * beta_d * (t ** 2) + beta_min * t) - 1) ** 0.5
-    
-    else:
-        pass
-    
-def inv_sigma_func(beta_d, beta_min, t, sampler='vp'):
-    
-    if sampler == 'vp':
-        return (np.e ** (0.5 * beta_d * (t ** 2) + beta_min * t) - 1) ** 0.5
-    else:
-        pass
-    
-def sigma_deriv_func(beta_d, beta_min, t, sampler='vp'):
-    
-    sigma_t = sigma_func(beta_d, beta_min, t, sampler=sampler)
-    
-    if sampler == 'vp':
-        return 0.5 * (beta_min + beta_d * t) * (sigma_t + 1 / sigma_t)
-    else:
-        pass
-
 class VPSampler(nn.Module):
     """ 
     EDM version (https://arxiv.org/abs/2206.00364) VP sampler in Algorithm 1:
@@ -56,14 +30,6 @@ class VPSampler(nn.Module):
         self.beta_d = beta_d
         self.beta_min = beta_min
         self.epsilon_s = epsilon_s
-        
-        sigma_min = sigma_func(beta_d=self.beta_d, beta_min=self.beta_min, t=epsilon_s)
-        sigma_max = sigma_func(beta_d=self.beta_d, beta_min=self.beta_min, t=1)
-        
-        # Compute corresponding betas for VP.
-        self.vp_beta_d = 2 * (np.log(sigma_min**2 + 1) / self.epsilon_s - np.log(sigma_max ** 2 + 1))/(self.epsilon_s - 1)
-        self.vp_beta_min = np.log(sigma_max ** 2 + 1) - 0.5 * self.vp_beta_d
-        
         self.s_noise = s_noise
         self.s_churn = s_churn
         self.s_min = s_min
@@ -71,21 +37,33 @@ class VPSampler(nn.Module):
         self.num_steps = num_steps
         self.cond_scale = cond_scale
         
-    def t_to_sigma(self, t):
-        return sigma_func(self.vp_beta_d, self.vp_beta_min, t)
+        ## Sampler helper function
+        vp_sigma = lambda beta_d, beta_min: lambda t: (np.e ** (0.5 * beta_d * (t ** 2) + beta_min * t) - 1) ** 0.5
+        vp_sigma_deriv = lambda beta_d, beta_min: lambda t: 0.5 * (beta_min + beta_d * t) * (sigma(t) + 1 / sigma(t))
+        vp_sigma_inv = lambda beta_d, beta_min: lambda sigma: ((beta_min ** 2 + 2 * beta_d * (sigma ** 2 + 1).log()).sqrt() - beta_min) / beta_d
         
-    def sigma_to_t(self, sigma):
-        return inv_sigma_func(self.vp_beta_d, self.vp_beta_min, sigma)
-    
-    def sigma_deriv(self, t):
-        return sigma_deriv_func(self.vp_beta_d, self.vp_beta_min, t)
-    
-    def scale(self, t):
-        sigma_t = self.t_to_sigma(t)
-        return 1 / (1 + sigma_t ** 2).sqrt()
-    
-    def scale_deriv(self, t):
-        return -self.t_to_sigma(t) * self.sigma_deriv(t) * (self.scale(t) ** 3)
+        sigma_min = vp_sigma(beta_d=self.beta_d, beta_min=self.beta_min)(t=epsilon_s)
+        sigma_max = vp_sigma(beta_d=self.beta_d, beta_min=self.beta_min)(t=1)
+        
+        # Compute corresponding betas for VP.
+        self.vp_beta_d = 2 * (np.log(sigma_min**2 + 1) / self.epsilon_s - np.log(sigma_max ** 2 + 1))/(self.epsilon_s - 1)
+        self.vp_beta_min = np.log(sigma_max ** 2 + 1) - 0.5 * self.vp_beta_d
+        
+        # Define noise level schedule.
+        sigma = vp_sigma(self.vp_beta_d, self.vp_beta_min)
+        sigma_deriv = vp_sigma_deriv(self.vp_beta_d, self.vp_beta_min)
+        sigma_inv = vp_sigma_inv(self.vp_beta_d, self.vp_beta_min)
+        
+        # Define scaling schedule.
+        scale = lambda t: 1 / (1 + sigma(t) ** 2).sqrt()
+        scale_deriv = lambda t: -sigma(t) * sigma_deriv(t) * (scale(t) ** 3)
+        
+        self.scale = scale
+        self.scale_deriv = scale_deriv
+        self.vp_sigma = vp_sigma
+        self.sigma_inv = sigma_inv
+        self.sigma_deriv = sigma_deriv
+        self.sigma = sigma
         
     def step(self, x: Tensor, 
              x_classes: Tensor, 
@@ -97,16 +75,16 @@ class VPSampler(nn.Module):
         epsilon = self.s_noise * torch.randn_like(x)
 
         # Increase noise temporarily.
-        t_hat = self.sigma_to_t((self.t_to_sigma(t) + gamma * self.t_to_sigma(t)))
-        x_hat = self.scale(t_hat) / self.scale(t) * x + (self.t_to_sigma(t_hat) ** 2 - self.t_to_sigma(t) ** 2).clip(min=0).sqrt() * self.scale(t_hat) * epsilon
+        t_hat = self.sigma_inv((self.sigma(t) + gamma * self.sigma(t)))
+        x_hat = self.scale(t_hat) / self.scale(t) * x + (self.sigma(t_hat) ** 2 - self.sigma(t) ** 2).clip(min=0).sqrt() * self.scale(t_hat) * epsilon
 
         # Euler step.
         denoised_cur = fn(x_hat/self.scale(t_hat), x_classes, 
-                          net=net, sigma=self.t_to_sigma(t_hat), 
+                          net=net, sigma=self.sigma(t_hat), 
                           inference=True, cond_scale=self.cond_scale, 
                           x_mask=x_mask, **kwargs)
         
-        d = (self.sigma_deriv(t_hat)/self.t_to_sigma(t_hat) + self.scale_deriv(t_hat)/self.scale(t_hat))*x_hat - self.sigma_deriv(t_hat) * self.scale(t_hat) / self.t_to_sigma(t_hat) * denoised_cur
+        d = (self.sigma_deriv(t_hat)/self.sigma(t_hat) + self.scale_deriv(t_hat)/self.scale(t_hat))*x_hat - self.sigma_deriv(t_hat) * self.scale(t_hat) / self.sigma(t_hat) * denoised_cur
 
         x_next = x_hat + (t_next - t_hat) * d
         
@@ -122,17 +100,18 @@ class VPSampler(nn.Module):
                 sigmas: Tensor, # actually t
                 use_heun: bool=True,
                 **kwargs) -> Tensor:
-
-        orig_t_steps = sigmas
-        sigmas = self.t_to_sigma(orig_t_steps)
-
-        t_steps = self.sigma_to_t(sigmas)
-        t_steps = torch.cat([t_steps, torch.zeros_like(t_steps[:1])]) # t_N = 0
         
-        x = noise * self.t_to_sigma(t_steps[0]) * self.scale(t_steps[0])
+        orig_t_steps = sigmas
+        sigma_steps = self.vp_sigma(self.vp_beta_d, self.vp_beta_min)(orig_t_steps)
+        
+        # Sampling steps
+        t_steps = self.sigma_inv(sigma_steps)
+        t_steps = torch.cat([t_steps, torch.zeros_like(t_steps[:1])]) # t_N = 0
+
+        x = noise * self.sigma(t_steps[0]) * self.scale(t_steps[0])
         for i in range(self.num_steps-1):
             
-            gamma = min(self.s_churn/self.num_steps, np.sqrt(2)-1) if self.s_min<=self.t_to_sigma(t_steps[i])<=self.s_max else 0
+            gamma = min(self.s_churn/self.num_steps, np.sqrt(2)-1) if self.s_min<=self.sigma(t_steps[i])<=self.s_max else 0
             
             x = self.step(x, x_classes, 
                           fn=fn, net=net, 
