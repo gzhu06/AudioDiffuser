@@ -1,0 +1,56 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /datamodule: sc09.yaml
+  - override /model: diffunet.yaml
+  - override /callbacks: custom_exp2.yaml
+  - override /trainer: gpu.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["sc09", "diffunet", "unconditional"]
+audio_len: 16384
+seed: 12345
+
+trainer:
+  min_epochs: 1600
+  max_epochs: 1600
+
+model:
+  use_ema: False
+  audio_sample_rate: 16000
+  generated_sample_length: ${audio_len}
+  net:
+    _target_: src.models.components.backbones.unet1d.UNet1dBase
+    stride: 8
+    num_filters: 128
+    window_length: 32
+    use_nearest_upsample: True
+  diffusion:
+    _target_: src.models.components.diffusion.VEDiffusion
+  noise_distribution:
+    _target_: src.models.components.distribution.LogUniformDistribution
+    sigma_max: 100
+    sigma_min: 0.02
+  sampler:
+    _target_: src.models.components.sampler.VESampler
+    s_churn: 200
+    num_steps: 200
+  noise_scheduler:
+    _target_: src.models.components.scheduler.GeometricSchedule
+    sigma_max: 100
+    sigma_min: 0.02
+    num_steps : 200
+
+datamodule:
+  batch_size: 64
+  audio_len: ${audio_len} 
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "diffaudio-sc09"

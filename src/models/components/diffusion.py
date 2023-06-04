@@ -29,6 +29,100 @@ class Diffusion(nn.Module):
     def denoise_fn(self):
         pass
     
+    
+class VEDiffusion(Diffusion):
+    def __init__(
+        self,
+        dynamic_threshold: float = 0.0
+    ):
+        super().__init__()
+        self.dynamic_threshold = dynamic_threshold
+        
+    def get_scale_weights(self, sigmas: Tensor, ex_dim: int) -> Tuple[Tensor, ...]:
+
+        # preconditioning equations in table.1
+        c_noise = torch.log(0.5 * sigmas)
+        sigmas = extend_dim(sigmas, dim=ex_dim)
+        c_skip = 1
+        c_out = sigmas
+        c_in = 1
+        
+        return c_skip, c_out, c_in, c_noise
+    
+    def denoise_fn(
+        self,
+        x_noisy: Tensor,
+        x_classes: Tensor,
+        net: nn.Module = None,
+        inference: bool = False,
+        cond_scale: float = 1.0,
+        sigmas: Optional[Tensor] = None,
+        sigma: Optional[float] = None,
+        x_mask: Optional[Tensor] = None,
+        **kwargs) -> Tensor:
+
+        batch_size, device = x_noisy.shape[0], x_noisy.device
+        sigmas = to_batch(x=sigma, xs=sigmas, batch_size=batch_size, device=device)
+        
+        # Predict network output
+        c_skip, c_out, c_in, c_noise = self.get_scale_weights(sigmas, x_noisy.ndim)
+        x_pred = net(c_in*x_noisy, c_noise, classes=x_classes, x_mask=x_mask, **kwargs)
+        
+        # cfg interpolation during inference, skip during training
+        if inference and cond_scale != 1.0:
+            null_logits = net(c_in*x_noisy, c_noise, x_classes, 
+                              cond_drop_prob=1., x_mask=x_mask, **kwargs)
+            x_pred = null_logits + (x_pred - null_logits) * cond_scale
+
+        # eq.7
+        x_denoised = c_skip * x_noisy + c_out * x_pred
+        
+        # Clips in [-1,1] range, with dynamic thresholding if provided
+        return clip(x_denoised, dynamic_threshold=self.dynamic_threshold)
+
+    
+    def loss_weight(self, sigmas: Tensor) -> Tensor:
+        # Computes weight depending on data distribution
+        return 1/(sigmas**2)
+    
+    def forward(self, x: Tensor, 
+                x_classes: Tensor,
+                net: nn.Module, 
+                distribution: Distribution, 
+                x_mask: Tensor = None,
+                inference: bool = False,
+                cond_scale: float = 1.0,
+                **kwargs) -> Tensor:
+
+        batch_size, device = x.shape[0], x.device
+        
+        if x_mask is None:
+            x_mask = torch.ones(x.size(), device=device)
+
+        # Sample amount of noise to add for each batch element
+        sigmas = distribution(num_samples=batch_size, device=device)
+        sigmas_padded = extend_dim(sigmas, dim=x.ndim)
+
+        # Add noise to input
+        noise = torch.randn_like(x)
+
+        # Compute denoised values
+        x_noisy = x + sigmas_padded * noise * x_mask
+        x_denoised = self.denoise_fn(x_noisy, x_classes, 
+                                     net, sigmas=sigmas, 
+                                     x_mask=x_mask, 
+                                     inference=inference, 
+                                     cond_scale=cond_scale,
+                                     **kwargs)
+        
+        # noise level weighted loss (weighted eq.2)
+        losses = F.mse_loss(x_denoised, x, reduction="none")
+        losses = reduce(losses, "b ... -> b", "sum")
+        losses = losses * self.loss_weight(sigmas) / torch.sum(x_mask)
+        losses = losses.mean()
+
+        return losses
+    
 class VPDiffusion(Diffusion):
     """VP Diffusion Models formulated by EDM"""
 

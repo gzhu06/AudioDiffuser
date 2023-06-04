@@ -44,3 +44,20 @@ class ReverseLinearSchedule(nn.Module):
         step_indices = torch.arange(self.num_steps)
         orig_t_steps = 1 + step_indices / (self.num_steps - 1) * (self.epsilon_s - 1)
         return orig_t_steps
+    
+class GeometricSchedule(nn.Module):
+    def __init__(self, sigma_max: float = 100, sigma_min: float = 0.02, num_steps: int = 50):
+        super().__init__()
+        self.sigma_max = sigma_max
+        self.sigma_min = sigma_min
+        self.num_steps = num_steps
+        
+    def forward(self) -> Tensor:
+        t_schedule = []
+        for i in range(self.num_steps):
+            t_i = self.sigma_max**2 * ((self.sigma_min**2 / self.sigma_max**2)**(i/(self.num_steps - 1)))
+            t_schedule.append(t_i)
+        sigmas = torch.tensor(t_schedule)
+        sigmas = torch.cat([sigmas, torch.zeros_like(sigmas[:1])])
+        
+        return sigmas

@@ -10,6 +10,99 @@ from .utils import extend_dim
 
 """ Samplers """
 
+class VESampler(nn.Module):
+    """ 
+    EDM (https://arxiv.org/abs/2206.00364) VE sampler:
+    """
+    def __init__(
+        self,
+        s_tmin: float = 0,
+        s_tmax: float = float('inf'),
+        s_churn: float = 200,
+        s_noise: float = 1,
+        num_steps: int = 200,
+        cond_scale: float = 1.0,
+    ):
+        super().__init__()
+        self.s_tmin = s_tmin
+        self.s_tmax = s_tmax
+        self.s_churn = s_churn
+        self.s_noise = s_noise
+        self.num_steps = num_steps
+        self.cond_scale = cond_scale
+        
+    def sigma_t(self, t):
+        return t.sqrt()
+    
+    def sigma_time_deriv_t(self, t):
+        return 0.5 * t**(-0.5)
+    
+    def sigma_inv(self, sigma):
+        return sigma ** 2
+    
+    def step(self, x: Tensor, 
+             x_classes: Tensor, 
+             fn: Callable, net: nn.Module, 
+             t: float, t_next: float,
+             gamma: float,
+             x_mask: Tensor=None, 
+            **kwargs) -> Tensor:
+        
+        """One step of VE sampler"""
+        sigma = self.sigma_t(t)
+        sigma_hat = sigma + gamma * sigma
+        t_hat = self.sigma_inv(sigma_hat)
+        epsilon = self.s_noise * torch.randn_like(x)
+
+        x_hat = x + (sigma_hat ** 2 - sigma ** 2).sqrt() * epsilon
+
+        sigma = self.sigma_t(t_hat)
+        sigma_deriv = self.sigma_time_deriv_t(t_hat)
+
+        # Evaluate D_theta
+        denoised_cur =  fn(x_hat, x_classes, net=net, 
+                           sigma=sigma, inference=True, 
+                           cond_scale=self.cond_scale, 
+                           x_mask=x_mask, **kwargs)
+        
+        # evaluate dx/dt at ti
+        d = (sigma_deriv / sigma) * x_hat - sigma_deriv * denoised_cur / sigma
+
+        # Take euler step from sigma_hat to sigma_next
+        x_next = x_hat + (t_next - t_hat) * d
+
+        return x_next
+    
+    def forward(self, noise: Tensor, 
+                x_classes: Tensor, 
+                fn: Callable,  # denoising function
+                net: nn.Module, 
+                sigmas: Tensor, 
+                x_mask: Tensor=None, **kwargs) -> Tensor:
+        
+        # here sigmas means t
+        # input parameters have to be consistent with the above
+        
+        sigma = self.sigma_t(sigmas[0])
+        x = sigma * noise
+        
+        gammas = torch.where(
+            (sigmas >= self.s_tmin) & (sigmas <= self.s_tmax),
+            min(self.s_churn / self.num_steps, sqrt(2) - 1),
+            0.0,
+        )
+        
+        # Denoise to sample
+        for i in range(self.num_steps-1):
+            x = self.step(x, x_classes, 
+                          x_mask=x_mask, fn=fn, 
+                          net=net, 
+                          gamma=gammas[i],
+                          t=sigmas[i], t_next=sigmas[i+1],
+                          **kwargs)  # type: ignore # noqa
+
+        return x.clamp(-1.0, 1.0)
+    
 class VPSampler(nn.Module):
     """ 
     EDM version (https://arxiv.org/abs/2206.00364) VP sampler in Algorithm 1:
@@ -282,36 +375,6 @@ class EDMSampler(nn.Module):
                           use_heun=use_heun, 
                           **kwargs)
             
-        return x
-
-class AEulerSampler(nn.Module):
-
-    # diffusion_types = [KDiffusion, VKDiffusion]
-
-    def get_sigmas(self, sigma: float, sigma_next: float) -> Tuple[float, float]:
-        sigma_up = sqrt(sigma_next ** 2 * (sigma ** 2 - sigma_next ** 2) / sigma ** 2)
-        sigma_down = sqrt(sigma_next ** 2 - sigma_up ** 2)
-        return sigma_up, sigma_down
-
-    def step(self, x: Tensor, fn: Callable, sigma: float, sigma_next: float) -> Tensor:
-        # Sigma steps
-        sigma_up, sigma_down = self.get_sigmas(sigma, sigma_next)
-        # Derivative at sigma (∂x/∂sigma)
-        d = (x - fn(x, sigma=sigma)) / sigma
-        # Euler method
-        x_next = x + d * (sigma_down - sigma)
-        # Add randomness
-        x_next = x_next + torch.randn_like(x) * sigma_up
-        return x_next
-
-    def forward(
-        self, noise: Tensor, fn: Callable, sigmas: Tensor, num_steps: int
-    ) -> Tensor:
-        x = sigmas[0] * noise
-
-        # Denoise to sample
-        for i in range(num_steps-1):
-            x = self.step(x, fn=fn, sigma=sigmas[i], sigma_next=sigmas[i+1])  # type: ignore # noqa
         return x
 
 class ADPM2Sampler(nn.Module):
