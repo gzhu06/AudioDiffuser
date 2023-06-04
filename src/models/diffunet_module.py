@@ -145,31 +145,31 @@ class DiffUnetModule(LightningModule):
         self.test_loss(loss)
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
 
-        with torch.no_grad():
-            if batch_idx == 0:
-                test_sample_folder = os.path.join(self.logger.save_dir, 'reconstruct_samples')
-                os.makedirs(test_sample_folder, exist_ok=True)
+#         with torch.no_grad():
+#             if batch_idx == 0:
+#                 test_sample_folder = os.path.join(self.logger.save_dir, 'reconstruct_samples')
+#                 os.makedirs(test_sample_folder, exist_ok=True)
 
-                device = next(self.net.parameters()).device
-                x_input = batch['audio'].unsqueeze(1)
-                x_classes = batch['label']
+#                 device = next(self.net.parameters()).device
+#                 x_input = batch['audio'].unsqueeze(1)
+#                 x_classes = batch['label']
 
-                # encode x
-                diff_net = self.net_ema if self.use_ema else self.net
-                audio_sample = self.sampler.encode(x_input, x_classes, fn=self.diffusion.denoise_fn,
-                                                   net=diff_net, sigmas=self.noise_scheduler.to(device),
-                                                   decode=True)
+#                 # encode x
+#                 diff_net = self.net_ema if self.use_ema else self.net
+#                 audio_sample = self.sampler.encode(x_input, x_classes, fn=self.diffusion.denoise_fn,
+#                                                    net=diff_net, sigmas=self.noise_scheduler.to(device),
+#                                                    decode=True)
 
-                audio_sample = audio_sample.squeeze(1).cpu()
+#                 audio_sample = audio_sample.squeeze(1).cpu()
 
-                for i in range(audio_sample.shape[0]):
-                    recon_audio_filename = 'recon_test_'+str(x_classes[i].item())+'_'+str(i)+'.wav'
-                    recon_audio_path = os.path.join(test_sample_folder, recon_audio_filename)
-                    torchaudio.save(recon_audio_path, audio_sample[i].unsqueeze(0), self.audio_sample_rate)
+#                 for i in range(audio_sample.shape[0]):
+#                     recon_audio_filename = 'recon_test_'+str(x_classes[i].item())+'_'+str(i)+'.wav'
+#                     recon_audio_path = os.path.join(test_sample_folder, recon_audio_filename)
+#                     torchaudio.save(recon_audio_path, audio_sample[i].unsqueeze(0), self.audio_sample_rate)
 
-                    gt_audio_filename = 'gt_test_'+str(x_classes[i].item())+'_'+str(i)+'.wav'
-                    gt_audio_path = os.path.join(test_sample_folder, gt_audio_filename)
-                    torchaudio.save(gt_audio_path, x_input[i].cpu(), self.audio_sample_rate)
+#                     gt_audio_filename = 'gt_test_'+str(x_classes[i].item())+'_'+str(i)+'.wav'
+#                     gt_audio_path = os.path.join(test_sample_folder, gt_audio_filename)
+#                     torchaudio.save(gt_audio_path, x_input[i].cpu(), self.audio_sample_rate)
                 
 
         return {"loss": loss}

@@ -32,17 +32,24 @@ model:
     window_length: 32
     use_nearest_upsample: True
   diffusion:
-    sigma_data : 0.2
-    dynamic_threshold : 0.0
+    _target_: src.models.components.diffusion.VPDiffusion
+    beta_min: 0.05
+    beta_d: 19.95
+    M: 1000
   noise_distribution:
-    mean : -3.0 
-    std : 1.0
+    _target_: src.models.components.distribution.UniformDistribution
+    vmin: 0.00001
+    vmax: 1.0
   sampler:
     _target_: src.models.components.sampler.VPSampler
-    num_steps: ${sampler_steps}
+    num_steps: 100
+    beta_d: 19.95
+    beta_min: 0.05
+    epsilon_s: 0.00001
   noise_scheduler:
-    _target_: src.models.components.scheduler.VPSchedule
-    num_steps : ${sampler_steps}
+    _target_: src.models.components.scheduler.ReverseLinearSchedule
+    epsilon_s: 0.00001
+    num_steps : 100
 
 datamodule:
   batch_size: 64

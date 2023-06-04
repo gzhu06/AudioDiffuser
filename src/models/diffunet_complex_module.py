@@ -73,7 +73,7 @@ class DiffUnetComplexModule(LightningModule):
         
         # compute loss
         loss = self.diffusion(audio, audio_classes, self.net, 
-                              sigma_distribution=self.noise_distribution)
+                              distribution=self.noise_distribution)
         return loss
 
     def on_train_start(self):

@@ -79,7 +79,7 @@ class VPSampler(nn.Module):
         x_hat = self.scale(t_hat) / self.scale(t) * x + (self.sigma(t_hat) ** 2 - self.sigma(t) ** 2).clip(min=0).sqrt() * self.scale(t_hat) * epsilon
 
         # Euler step.
-        denoised_cur = fn(x_hat/self.scale(t_hat), x_classes, 
+        denoised_cur = fn(x_hat / self.scale(t_hat), x_classes, 
                           net=net, sigma=self.sigma(t_hat), 
                           inference=True, cond_scale=self.cond_scale, 
                           x_mask=x_mask, **kwargs)
@@ -103,7 +103,7 @@ class VPSampler(nn.Module):
         
         orig_t_steps = sigmas
         sigma_steps = self.vp_sigma(self.vp_beta_d, self.vp_beta_min)(orig_t_steps)
-        
+
         # Sampling steps
         t_steps = self.sigma_inv(sigma_steps)
         t_steps = torch.cat([t_steps, torch.zeros_like(t_steps[:1])]) # t_N = 0
@@ -120,6 +120,7 @@ class VPSampler(nn.Module):
                           gamma=gamma, 
                           use_heun=use_heun, 
                           **kwargs)
+
         return x
 
 class EDMSampler(nn.Module):
