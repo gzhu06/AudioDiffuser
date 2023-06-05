@@ -135,17 +135,9 @@ class VPSampler(nn.Module):
         vp_sigma_deriv = lambda beta_d, beta_min: lambda t: 0.5 * (beta_min + beta_d * t) * (sigma(t) + 1 / sigma(t))
         vp_sigma_inv = lambda beta_d, beta_min: lambda sigma: ((beta_min ** 2 + 2 * beta_d * (sigma ** 2 + 1).log()).sqrt() - beta_min) / beta_d
         
-        sigma_min = vp_sigma(beta_d=self.beta_d, beta_min=self.beta_min)(t=epsilon_s)
-        sigma_max = vp_sigma(beta_d=self.beta_d, beta_min=self.beta_min)(t=1)
-        
-        # Compute corresponding betas for VP.
-        self.vp_beta_d = 2 * (np.log(sigma_min**2 + 1) / self.epsilon_s - np.log(sigma_max ** 2 + 1))/(self.epsilon_s - 1)
-        self.vp_beta_min = np.log(sigma_max ** 2 + 1) - 0.5 * self.vp_beta_d
-        
-        # Define noise level schedule.
-        sigma = vp_sigma(self.vp_beta_d, self.vp_beta_min)
-        sigma_deriv = vp_sigma_deriv(self.vp_beta_d, self.vp_beta_min)
-        sigma_inv = vp_sigma_inv(self.vp_beta_d, self.vp_beta_min)
+        sigma = vp_sigma(self.beta_d, self.beta_min)
+        sigma_deriv = vp_sigma_deriv(self.beta_d, self.beta_min)
+        sigma_inv = vp_sigma_inv(self.beta_d, self.beta_min)
         
         # Define scaling schedule.
         scale = lambda t: 1 / (1 + sigma(t) ** 2).sqrt()
@@ -195,7 +187,7 @@ class VPSampler(nn.Module):
                 **kwargs) -> Tensor:
         
         orig_t_steps = sigmas
-        sigma_steps = self.vp_sigma(self.vp_beta_d, self.vp_beta_min)(orig_t_steps)
+        sigma_steps = self.vp_sigma(self.beta_d, self.beta_min)(orig_t_steps)
 
         # Sampling steps
         t_steps = self.sigma_inv(sigma_steps)

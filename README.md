@@ -111,7 +111,6 @@ super-resolution
 
 ## TODO
 ### Code
-- [ ] v-objective, x-objective and epsilon (vp, ve) with edm framework
 - [ ] DDIM
 - [ ] consistency models
 - [ ] applications: vocoder, super-resolution, speech enhancement and source separation
@@ -128,7 +127,6 @@ super-resolution
 
 ### Check TODO
 - Diffusion: ADM sampling
-
 
 ## Notebooks
 
