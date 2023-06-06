@@ -46,25 +46,20 @@ model:
     ff_mult: 2.
     memory_efficient: True
   diffusion:
-    _target_: src.models.components.diffusion.VPDiffusion
-    beta_min: 0.05
-    beta_d: 19.95
-    M: 1000
+    sigma_data : 0.2
+    dynamic_threshold : 0.0
   noise_distribution:
-    _target_: src.models.components.distribution.UniformDistribution
-    vmin: 0.00001
-    vmax: 1.0
+    mean : -3.0 
+    std : 1.0
   sampler:
-    _target_: src.models.components.sampler.VPSampler
-    num_steps: 100
-    beta_d: 19.95
-    beta_min: 0.05
-    epsilon_s: 0.001
-    s_churn: 100
+    rho: 1.0
+    num_steps: 50
+    cond_scale: 9.0
   noise_scheduler:
-    _target_: src.models.components.scheduler.LinearSchedule
-    end: 0.001
-    num_steps : 100
+    sigma_min : 0.0001
+    sigma_max : 3.0 
+    rho : 9.0
+    num_steps : 50
 
 datamodule:
   batch_size: 32

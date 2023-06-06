@@ -141,7 +141,7 @@ class VPDiffusion(Diffusion):
 
     def loss_weight(self, sigmas: Tensor) -> Tensor:
         # Computes weight depending on data distribution
-        return sigmas ** (-2)
+        return 1 / sigmas ** 2
     
     def t_to_sigma(self, t):
         return ((0.5 * self.beta_d * (t ** 2) + self.beta_min * t).exp() - 1).sqrt()

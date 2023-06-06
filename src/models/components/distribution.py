@@ -24,7 +24,7 @@ class UniformDistribution(Distribution):
 
     def __call__(self, num_samples: int, device: torch.device = torch.device("cpu")):
         vmax, vmin = self.vmax, self.vmin
-        return (vmax - vmin) * torch.rand(num_samples, device=device) + vmin
+        return (vmin - vmax) * torch.rand(num_samples, device=device) + vmax
     
 class LogUniformDistribution(Distribution):
     def __init__(self, sigma_min: float = 0.02, sigma_max: float = 100):

@@ -32,8 +32,8 @@ model:
     use_nearest_upsample: True
   diffusion:
     _target_: src.models.components.diffusion.VPDiffusion
-    beta_min: 0.05
-    beta_d: 19.95
+    beta_min: 0.1
+    beta_d: 19.9
     M: 1000
   noise_distribution:
     _target_: src.models.components.distribution.UniformDistribution
@@ -42,12 +42,13 @@ model:
   sampler:
     _target_: src.models.components.sampler.VPSampler
     num_steps: 100
-    beta_d: 19.95
-    beta_min: 0.05
-    epsilon_s: 0.00001
+    beta_d: 19.9
+    beta_min: 0.1
+    epsilon_s: 0.001
+    s_churn: 100
   noise_scheduler:
-    _target_: src.models.components.scheduler.ReverseLinearSchedule
-    epsilon_s: 0.00001
+    _target_: src.models.components.scheduler.LinearSchedule
+    end: 0.001
     num_steps : 100
 
 datamodule:

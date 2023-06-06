@@ -31,19 +31,9 @@ class LinearSchedule(nn.Module):
         self.num_steps = num_steps
 
     def forward(self) -> Tensor:
-        return torch.linspace(self.start, self.end, self.num_steps+1)
-    
-class ReverseLinearSchedule(nn.Module):
-    def __init__(self, epsilon_s: float = 1e-3, num_steps: int = 50):
-        super().__init__()
-        self.epsilon_s = epsilon_s
-        self.num_steps = num_steps
-
-    def forward(self) -> Tensor:
-        
-        step_indices = torch.arange(self.num_steps)
-        orig_t_steps = 1 + step_indices / (self.num_steps - 1) * (self.epsilon_s - 1)
-        return orig_t_steps
+        sigmas = torch.linspace(self.start, self.end, self.num_steps)
+        sigmas = F.pad(sigmas, pad=(0, 1), value=0.0)
+        return sigmas
     
 class GeometricSchedule(nn.Module):
     def __init__(self, sigma_max: float = 100, sigma_min: float = 0.02, num_steps: int = 50):

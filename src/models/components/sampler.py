@@ -156,12 +156,10 @@ class VPSampler(nn.Module):
              t: float, t_next: float, 
              gamma: float, x_mask: Tensor=None, 
              use_heun: bool=True, **kwargs) -> Tensor:
-        
-        epsilon = self.s_noise * torch.randn_like(x)
 
         # Increase noise temporarily.
         t_hat = self.sigma_inv((self.sigma(t) + gamma * self.sigma(t)))
-        x_hat = self.scale(t_hat) / self.scale(t) * x + (self.sigma(t_hat) ** 2 - self.sigma(t) ** 2).clip(min=0).sqrt() * self.scale(t_hat) * epsilon
+        x_hat = self.scale(t_hat) / self.scale(t) * x + (self.sigma(t_hat)**2-self.sigma(t)**2).clip(min=0).sqrt() * self.scale(t_hat) * self.s_noise * torch.randn_like(x)
 
         # Euler step.
         denoised_cur = fn(x_hat / self.scale(t_hat), x_classes, 
@@ -170,11 +168,19 @@ class VPSampler(nn.Module):
                           x_mask=x_mask, **kwargs)
         
         d = (self.sigma_deriv(t_hat)/self.sigma(t_hat) + self.scale_deriv(t_hat)/self.scale(t_hat))*x_hat - self.sigma_deriv(t_hat) * self.scale(t_hat) / self.sigma(t_hat) * denoised_cur
-
-        x_next = x_hat + (t_next - t_hat) * d
+        h = t_next - t_hat
+        x_next = x_hat + h * d
         
         # Apply 2nd order correction.
-#         if sigma_next != 0 and use_heun:
+        if t_next != 0 and use_heun:
+            t_prime = t_hat + h
+            
+            denoised_prime = fn(x_next / self.scale(t_prime), x_classes, 
+                                net=net, sigma=self.sigma(t_prime), 
+                                inference=True, cond_scale=self.cond_scale, 
+                                x_mask=x_mask, **kwargs)
+            d_prime = (self.sigma_deriv(t_prime) / self.sigma(t_prime) + self.scale_deriv(t_prime) / self.scale(t_prime)) * x_next - self.sigma_deriv(t_prime) * self.scale(t_prime) / self.sigma(t_prime) * denoised_prime
+            x_next = x_hat + 1/2 * h * (d + d_prime)
         
         return x_next
         
@@ -186,23 +192,24 @@ class VPSampler(nn.Module):
                 use_heun: bool=True,
                 **kwargs) -> Tensor:
         
-        orig_t_steps = sigmas
-        sigma_steps = self.vp_sigma(self.beta_d, self.beta_min)(orig_t_steps)
-
-        # Sampling steps
-        t_steps = self.sigma_inv(sigma_steps)
-        t_steps = torch.cat([t_steps, torch.zeros_like(t_steps[:1])]) # t_N = 0
-
+        t_steps = sigmas
+        sigma_steps = self.vp_sigma(self.beta_d, self.beta_min)(t_steps)
+        
+        # Compute gammas
+        gammas = torch.where(
+            (self.sigma(t_steps) >= self.s_min) & (self.sigma(t_steps) <= self.s_max),
+            min(self.s_churn / self.num_steps, sqrt(2) - 1),
+            0.0,
+        )
+        
         x = noise * self.sigma(t_steps[0]) * self.scale(t_steps[0])
-        for i in range(self.num_steps-1):
-            
-            gamma = min(self.s_churn/self.num_steps, np.sqrt(2)-1) if self.s_min<=self.sigma(t_steps[i])<=self.s_max else 0
+        for i in range(self.num_steps):
             
             x = self.step(x, x_classes, 
                           fn=fn, net=net, 
                           t=t_steps[i], 
                           t_next=t_steps[i+1], 
-                          gamma=gamma, 
+                          gamma=gammas[i], 
                           use_heun=use_heun, 
                           **kwargs)
 

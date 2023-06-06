@@ -43,13 +43,12 @@ model:
   sampler:
     _target_: src.models.components.sampler.VPSampler
     num_steps: 100
-    beta_min: 0.05
     beta_d: 19.95
-    epsilon_s: 0.00001
+    beta_min: 0.05
+    epsilon_s: 0.001
     s_churn: 100
   noise_scheduler:
-    _target_: src.models.components.scheduler.ReverseLinearSchedule
-    epsilon_s: 0.00001
+    _target_: src.models.components.scheduler.LinearSchedule
     num_steps : 100
 
 datamodule:
