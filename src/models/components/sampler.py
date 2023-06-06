@@ -31,46 +31,54 @@ class VESampler(nn.Module):
         self.num_steps = num_steps
         self.cond_scale = cond_scale
         
-    def sigma_t(self, t):
-        return t.sqrt()
-    
-    def sigma_time_deriv_t(self, t):
-        return 0.5 * t**(-0.5)
-    
-    def sigma_inv(self, sigma):
-        return sigma ** 2
+        
+        ## Sampler helper function
+        ve_sigma = lambda t: t.sqrt()
+        ve_sigma_deriv = lambda t: 0.5 / t.sqrt()
+        ve_sigma_inv = lambda sigma: sigma ** 2
+        
+        sigma = ve_sigma
+        sigma_deriv = ve_sigma_deriv
+        sigma_inv = ve_sigma_inv
+        
+        # Define scaling schedule.
+        self.ve_sigma = ve_sigma
+        self.sigma_inv = sigma_inv
+        self.sigma_deriv = sigma_deriv
+        self.sigma = sigma
     
     def step(self, x: Tensor, 
              x_classes: Tensor, 
              fn: Callable, net: nn.Module, 
-             t: float, t_next: float,
-             gamma: float,
-             x_mask: Tensor=None, 
-            **kwargs) -> Tensor:
+             t: float, t_next: float, 
+             gamma: float, x_mask: Tensor=None, 
+             use_heun: bool=True, **kwargs) -> Tensor:
+
+        # Increase noise temporarily.
+        t_hat = self.sigma_inv((self.sigma(t) + gamma * self.sigma(t)))
+        x_hat = x + (self.sigma(t_hat)**2 - self.sigma(t)**2).clip(min=0).sqrt() * self.s_noise * torch.randn_like(x)
+
+        # Euler step.
+        denoised_cur = fn(x_hat, x_classes, 
+                          net=net, sigma=self.sigma(t_hat), 
+                          inference=True, cond_scale=self.cond_scale, 
+                          x_mask=x_mask, **kwargs)
         
-        """One step of VE sampler"""
-        sigma = self.sigma_t(t)
-        sigma_hat = sigma + gamma * sigma
-        t_hat = self.sigma_inv(sigma_hat)
-        epsilon = self.s_noise * torch.randn_like(x)
-
-        x_hat = x + (sigma_hat ** 2 - sigma ** 2).sqrt() * epsilon
-
-        sigma = self.sigma_t(t_hat)
-        sigma_deriv = self.sigma_time_deriv_t(t_hat)
-
-        # Evaluate D_theta
-        denoised_cur =  fn(x_hat, x_classes, net=net, 
-                           sigma=sigma, inference=True, 
-                           cond_scale=self.cond_scale, 
-                           x_mask=x_mask, **kwargs)
+        d = (self.sigma_deriv(t_hat)/self.sigma(t_hat))*x_hat - self.sigma_deriv(t_hat)/self.sigma(t_hat) * denoised_cur
+        h = t_next - t_hat
+        x_next = x_hat + h * d
         
-        # evaluate dx/dt at ti
-        d = (sigma_deriv / sigma) * x_hat - sigma_deriv * denoised_cur / sigma
-
-        # Take euler step from sigma_hat to sigma_next
-        x_next = x_hat + (t_next - t_hat) * d
-
+        # Apply 2nd order correction.
+        if t_next != 0 and use_heun:
+            t_prime = t_hat + h
+            
+            denoised_prime = fn(x_next, x_classes, 
+                                net=net, sigma=self.sigma(t_prime), 
+                                inference=True, cond_scale=self.cond_scale, 
+                                x_mask=x_mask, **kwargs)
+            d_prime = self.sigma_deriv(t_prime) / self.sigma(t_prime) * x_next - self.sigma_deriv(t_prime) / self.sigma(t_prime) * denoised_prime
+            x_next = x_hat + 1/2 * h * (d + d_prime)
+        
         return x_next
     
     def forward(self, noise: Tensor, 
@@ -83,8 +91,8 @@ class VESampler(nn.Module):
         # here sigmas means t
         # input parameters have to be consistent with the above
         
-        sigma = self.sigma_t(sigmas[0])
-        x = sigma * noise
+        t_steps = sigmas
+        sigma_steps = self.ve_sigma(t_steps)
         
         gammas = torch.where(
             (sigmas >= self.s_tmin) & (sigmas <= self.s_tmax),
@@ -93,7 +101,8 @@ class VESampler(nn.Module):
         )
         
         # Denoise to sample
-        for i in range(self.num_steps-1):
+        x = noise * self.sigma(t_steps[0])
+        for i in range(self.num_steps):
             x = self.step(x, x_classes, 
                           x_mask=x_mask, fn=fn, 
                           net=net, 

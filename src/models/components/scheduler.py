@@ -43,11 +43,9 @@ class GeometricSchedule(nn.Module):
         self.num_steps = num_steps
         
     def forward(self) -> Tensor:
-        t_schedule = []
-        for i in range(self.num_steps):
-            t_i = self.sigma_max**2 * ((self.sigma_min**2 / self.sigma_max**2)**(i/(self.num_steps - 1)))
-            t_schedule.append(t_i)
-        sigmas = torch.tensor(t_schedule)
-        sigmas = torch.cat([sigmas, torch.zeros_like(sigmas[:1])])
+        
+        steps = torch.arange(self.num_steps, dtype=torch.float32)
+        sigmas = (self.sigma_max**2) * ((self.sigma_min**2/self.sigma_max**2) ** (steps / (self.num_steps-1)))
+        sigmas = F.pad(sigmas, pad=(0, 1), value=0.0)
         
         return sigmas

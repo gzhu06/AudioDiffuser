@@ -33,5 +33,6 @@ class LogUniformDistribution(Distribution):
         self.sigma_max = sigma_max
     
     def __call__(self, num_samples: int, device: torch.device = torch.device("cpu")):
-        uniform = (math.log(self.sigma_max) - math.log(self.sigma_min))*torch.rand(num_samples, device=device) + math.log(self.sigma_min)
-        return uniform.exp()
+        
+        rnd_uniform = torch.rand(num_samples, device=device)
+        return self.sigma_min * ((self.sigma_max / self.sigma_min) ** rnd_uniform)

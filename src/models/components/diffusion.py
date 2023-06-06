@@ -41,7 +41,7 @@ class VEDiffusion(Diffusion):
     def get_scale_weights(self, sigmas: Tensor, ex_dim: int) -> Tuple[Tensor, ...]:
 
         # preconditioning equations in table.1
-        c_noise = torch.log(0.5 * sigmas)
+        c_noise = (0.5 * sigmas).log()
         sigmas = extend_dim(sigmas, dim=ex_dim)
         c_skip = 1
         c_out = sigmas
@@ -83,7 +83,7 @@ class VEDiffusion(Diffusion):
     
     def loss_weight(self, sigmas: Tensor) -> Tensor:
         # Computes weight depending on data distribution
-        return 1/(sigmas**2)
+        return 1 / (sigmas**2)
     
     def forward(self, x: Tensor, 
                 x_classes: Tensor,
