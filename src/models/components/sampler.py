@@ -107,7 +107,8 @@ class VESampler(nn.Module):
                           x_mask=x_mask, fn=fn, 
                           net=net, 
                           gamma=gammas[i],
-                          t=sigmas[i], t_next=sigmas[i+1],
+                          t=t_steps[i], 
+                          t_next=t_steps[i+1],
                           **kwargs)  # type: ignore # noqa
 
         return x.clamp(-1.0, 1.0)
@@ -292,6 +293,7 @@ class EDMSampler(nn.Module):
                                **kwargs)
             d_prime = (x_next - denoised_next) / sigma_next
             x_next = x_hat + 0.5 * (sigma_next - sigma_hat) * (d + d_prime)
+            
 
         return x_next
     

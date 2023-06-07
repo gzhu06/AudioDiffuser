@@ -13,11 +13,10 @@ defaults:
 tags: ["sc09", "diffunet", "unconditional"]
 audio_len: 16384
 seed: 12345
-sampler_steps: 512
 
 trainer:
-  min_epochs: 800
-  max_epochs: 800
+  min_epochs: 1600
+  max_epochs: 1600
 
 model:
   use_ema: False
@@ -32,25 +31,20 @@ model:
     window_length: 32
     use_nearest_upsample: True
   diffusion:
-    _target_: src.models.components.diffusion.VPDiffusion
-    beta_min: 0.1
-    beta_d: 19.9
-    M: 1000
+    _target_: src.models.components.diffusion.VEDiffusion
   noise_distribution:
-    _target_: src.models.components.distribution.UniformDistribution
-    vmin: 0.00001
-    vmax: 1.0
+    _target_: src.models.components.distribution.LogUniformDistribution
+    sigma_max: 100
+    sigma_min: 0.02
   sampler:
-    _target_: src.models.components.sampler.VPSampler
-    num_steps: 100
-    beta_d: 19.9
-    beta_min: 0.1
-    epsilon_s: 0.001
-    s_churn: 100
+    _target_: src.models.components.sampler.VESampler
+    s_churn: 50
+    num_steps: 50
   noise_scheduler:
-    _target_: src.models.components.scheduler.LinearSchedule
-    end: 0.001
-    num_steps : 100
+    _target_: src.models.components.scheduler.GeometricSchedule
+    sigma_max: 100
+    sigma_min: 0.02
+    num_steps : 50
 
 datamodule:
   batch_size: 64
