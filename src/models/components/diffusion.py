@@ -11,6 +11,8 @@ from .distribution import Distribution
 from .utils import extend_dim, clip, to_batch
 from abc import ABC, abstractmethod
 
+EPSI = 1e-7
+
 class Diffusion(nn.Module):
     
     @abstractmethod
@@ -324,3 +326,103 @@ class EluDiffusion(Diffusion):
         losses = losses.mean()
 
         return losses
+    
+class VEluDiffusion(nn.Module):
+    
+    """ 
+    v-diffusion using EluDiffusion framework: 
+    
+    https://github.com/crowsonkb/k-diffusion/blob/master/k_diffusion/external.py#L9
+    
+    
+    """
+
+    def __init__(
+        self,
+        sigma_data: float = 1.0,  # data distribution
+        dynamic_threshold: float = 0.0
+    ):
+        super().__init__()
+        self.sigma_data = sigma_data
+        self.dynamic_threshold = dynamic_threshold
+
+    def get_scale_weights(self, sigmas: Tensor, ex_dim: int) -> Tuple[Tensor, ...]:
+        
+        c_noise = self.sigma_to_t(sigmas)
+        sigmas = extend_dim(sigmas, dim=ex_dim)
+        c_skip = (self.sigma_data ** 2) / (sigmas ** 2 + self.sigma_data ** 2)
+        c_out = -sigmas * self.sigma_data * (self.sigma_data ** 2 + sigmas ** 2) ** -0.5
+        c_in = (sigmas ** 2 + self.sigma_data ** 2) ** -0.5
+        return c_skip, c_out, c_in, c_noise
+
+    def sigma_to_t(self, sigmas: Tensor) -> Tensor:
+        return sigmas.atan() / pi * 2
+
+    def t_to_sigma(self, t: Tensor) -> Tensor:
+        return (t * pi / 2).tan()
+        
+    def denoise_fn(
+        self,
+        x_noisy: Tensor,
+        x_classes: Tensor,
+        net: nn.Module = None,
+        inference: bool = False,
+        cond_scale: float = 1.0,
+        sigmas: Optional[Tensor] = None,
+        sigma: Optional[float] = None,
+        x_mask: Optional[Tensor] = None,
+        **kwargs) -> Tensor:
+        
+        batch_size, device = x_noisy.shape[0], x_noisy.device
+        sigmas = to_batch(x=sigma, xs=sigmas, batch_size=batch_size, device=device)
+        
+        # Predict network output and add skip connection
+        c_skip, c_out, c_in, c_noise = self.get_scale_weights(sigmas, x_noisy.ndim)
+        x_pred = net(c_in * x_noisy, c_noise, **kwargs)
+        
+        # cfg interpolation during inference, skip during training
+        if inference and cond_scale != 1.0:
+            null_logits = net(c_in*x_noisy, c_noise, x_classes, 
+                              cond_drop_prob=1., x_mask=x_mask, **kwargs)
+            x_pred = null_logits + (x_pred - null_logits) * cond_scale
+
+
+
+        x_denoised = c_skip * x_noisy + c_out * x_pred
+        
+        return clip(x_denoised, dynamic_threshold=self.dynamic_threshold)
+    
+    def forward(self, x: Tensor, 
+                x_classes: Tensor,
+                net: nn.Module, 
+                distribution: Distribution, # sigma distribution
+                x_mask: Tensor = None,
+                inference: bool = False,
+                cond_scale: float = 1.0,
+                **kwargs) -> Tensor:
+
+        batch_size, device = x.shape[0], x.device
+        
+        
+        if x_mask is None:
+            x_mask = torch.ones(x.size(), device=device)
+
+        # Sample amount of noise to add for each batch element
+        sigmas = distribution(num_samples=batch_size, device=device)
+        sigmas_padded = extend_dim(sigmas, dim=x.ndim)
+
+        # Add noise to input
+        noise = torch.randn_like(x)
+        x_noisy = x + sigmas_padded * noise
+        
+        # Compute model output
+        c_skip, c_out, c_in, c_noise = self.get_scale_weights(sigmas, x_noisy.ndim)
+        x_pred = net(c_in * x_noisy, c_noise, **kwargs)
+
+        # Compute v-objective target
+        v_target = (x - c_skip * x_noisy) / (c_out + EPSI)
+
+        # Compute loss
+        loss = F.mse_loss(x_pred, v_target)
+        return loss
+    

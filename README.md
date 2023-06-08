@@ -83,6 +83,7 @@ We list implemented "essential oils" for the audio diffuser.
 |------------|------------|--------------------------|-------------------|
 |Diff-UNet-Waveform | SC09|[diffunet_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_module.py) | [diffunet_sc09.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_sc09.yaml)|
 |Diff-UNet-Complex | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09.yaml)|
+|Diff-UNet-Complex-VP | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09_vp.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09_vp.yaml)|
 | VQ-GAN(WIP)|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |[vqgan1d_vctk.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
 
 ### Demo Page

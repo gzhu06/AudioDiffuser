@@ -213,7 +213,7 @@ class VPSampler(nn.Module):
         )
         
         x = noise * self.sigma(t_steps[0]) * self.scale(t_steps[0])
-        for i in range(self.num_steps):
+        for i in range(self.num_steps - 1):
             
             x = self.step(x, x_classes, 
                           fn=fn, net=net, 
