@@ -31,21 +31,10 @@ class VESampler(nn.Module):
         self.num_steps = num_steps
         self.cond_scale = cond_scale
         
-        
-        ## Sampler helper function
-        ve_sigma = lambda t: t.sqrt()
-        ve_sigma_deriv = lambda t: 0.5 / t.sqrt()
-        ve_sigma_inv = lambda sigma: sigma ** 2
-        
-        sigma = ve_sigma
-        sigma_deriv = ve_sigma_deriv
-        sigma_inv = ve_sigma_inv
-        
-        # Define scaling schedule.
-        self.ve_sigma = ve_sigma
-        self.sigma_inv = sigma_inv
-        self.sigma_deriv = sigma_deriv
-        self.sigma = sigma
+        # Define sigma helper function
+        self.sigma_inv = lambda sigma: sigma ** 2
+        self.sigma_deriv = lambda t: 0.5 / t.sqrt()
+        self.sigma = lambda t: t.sqrt()
     
     def step(self, x: Tensor, 
              x_classes: Tensor, 
@@ -83,16 +72,17 @@ class VESampler(nn.Module):
     
     def forward(self, noise: Tensor, 
                 x_classes: Tensor, 
-                fn: Callable,  # denoising function
+                fn: Callable, 
                 net: nn.Module, 
-                sigmas: Tensor, 
-                x_mask: Tensor=None, **kwargs) -> Tensor:
+                sigmas: Tensor, # actually t
+                use_heun: bool=True,
+                **kwargs) -> Tensor:
         
         # here sigmas means t
         # input parameters have to be consistent with the above
         
         t_steps = sigmas
-        sigma_steps = self.ve_sigma(t_steps)
+        sigma_steps = self.sigma(t_steps)
         
         gammas = torch.where(
             (sigmas >= self.s_tmin) & (sigmas <= self.s_tmax),
@@ -102,14 +92,15 @@ class VESampler(nn.Module):
         
         # Denoise to sample
         x = noise * self.sigma(t_steps[0])
-        for i in range(self.num_steps):
+        for i in range(self.num_steps - 1):
             x = self.step(x, x_classes, 
-                          x_mask=x_mask, fn=fn, 
+                          fn=fn, 
                           net=net, 
                           gamma=gammas[i],
                           t=t_steps[i], 
                           t_next=t_steps[i+1],
-                          **kwargs)  # type: ignore # noqa
+                          use_heun=use_heun, 
+                          **kwargs)
 
         return x.clamp(-1.0, 1.0)
     
@@ -199,6 +190,7 @@ class VPSampler(nn.Module):
                 fn: Callable, 
                 net: nn.Module, 
                 sigmas: Tensor, # actually t
+                x_mask: Tensor=None, 
                 use_heun: bool=True,
                 **kwargs) -> Tensor:
         

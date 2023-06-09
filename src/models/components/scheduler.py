@@ -46,6 +46,6 @@ class GeometricSchedule(nn.Module):
         
         steps = torch.arange(self.num_steps, dtype=torch.float32)
         sigmas = (self.sigma_max**2) * ((self.sigma_min**2/self.sigma_max**2) ** (steps / (self.num_steps-1)))
-        sigmas = F.pad(sigmas, pad=(0, 1), value=0.0)
+#         sigmas = F.pad(sigmas, pad=(0, 1), value=0.0)
         
         return sigmas
