@@ -230,55 +230,6 @@ class VPDiffusion(Diffusion):
         losses = losses.mean()
 
         return losses
-    
-class improvedDiffusion(Diffusion):
-    """Elucidated Diffusion Models(EDM): https://arxiv.org/abs/2206.00364"""
-
-    def __init__(
-        self,
-        alpha_bar_j: float,
-        C_1: float = 0.001, 
-        C_2: float = 0.008,
-        M: float = 1000,
-        j_0: float = 8.0,
-        dynamic_threshold: float = 0.0
-    ):
-        super().__init__()
-        self.sigma_data = sigma_data
-        self.dynamic_threshold = dynamic_threshold
-        self.C_1 = C_1
-        self.C_2 = C_2
-        self.M = M
-        
-    def round_sigma(self, sigma, return_index=False):
-        sigma = torch.as_tensor(sigma)
-        index = torch.cdist(sigma.to(self.u.device).to(torch.float32).reshape(1, -1, 1), self.u.reshape(1, -1, 1)).argmin(2)
-        result = index if return_index else self.u[index.flatten()].to(sigma.dtype)
-        return result.reshape(sigma.shape).to(sigma.device)
-        
-    def alpha_bar(self, j):
-        j = torch.as_tensor(j)
-        return (0.5 * np.pi * j / self.M / (self.C_2 + 1)).sin() ** 2
-        
-    def loss_weight(self, sigmas: Tensor) -> Tensor:
-        # Computes weight depending on data distribution
-        return 1 / (sigmas**2)
-    
-    def forward(self, x: Tensor):
-        pass
-    
-    def get_scale_weights(self, sigmas: Tensor, ex_dim: int) -> Tuple[Tensor, ...]:
-
-        # preconditioning equations in table.1 
-#         c_noise = (self.M - 1) * self.sigma_to_t(sigmas)
-        sigmas = extend_dim(sigmas, dim=ex_dim)
-        c_skip = 1
-        c_out = - sigmas
-        c_in = 1 / (sigmas ** 2 + 1).sqrt()
-        return c_skip, c_out, c_in, c_noise
-    
-    def denoise_fn(self):
-        pass
 
 class EluDiffusion(Diffusion):
     """Elucidated Diffusion Models(EDM): https://arxiv.org/abs/2206.00364"""
@@ -427,7 +378,9 @@ class VEluDiffusion(Diffusion):
         
         # Predict network output and add skip connection
         c_skip, c_out, c_in, c_noise = self.get_scale_weights(sigmas, x_noisy.ndim)
-        x_pred = net(c_in * x_noisy, c_noise, **kwargs)
+        x_pred = net(c_in * x_noisy, c_noise, classes=x_classes, x_mask=x_mask, **kwargs)
+        
+        
         
         # cfg interpolation during inference, skip during training
         if inference and cond_scale != 1.0:
@@ -466,7 +419,7 @@ class VEluDiffusion(Diffusion):
         
         # Compute model output
         c_skip, c_out, c_in, c_noise = self.get_scale_weights(sigmas, x_noisy.ndim)
-        x_pred = net(c_in * x_noisy, c_noise, **kwargs)
+        x_pred = net(c_in * x_noisy, c_noise, classes=x_classes, x_mask=x_mask, **kwargs)
 
         # Compute v-objective target
         v_target = (x - c_skip * x_noisy) / (c_out + EPSI)

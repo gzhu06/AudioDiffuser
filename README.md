@@ -95,7 +95,7 @@ In this repo, we mainly use the desnoising score matching formulation discussed 
 
 ### 1.Diffusion
 
-In EDM, diffusion model training involves pre-conditioning and loss weighting.
+The forward function runs one neural function evaluation (NFE). In EDM, the diffusion model training involves pre-conditioning and loss weighting, inference involves denoising which calls `forward`.
 
 ```python
 class Diffusion(nn.Module):
@@ -119,6 +119,10 @@ class Diffusion(nn.Module):
 ```
 
 ### 2.Sampler
+```python
+def
+
+```
 
 ### 3.Scheduler
 

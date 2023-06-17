@@ -8,11 +8,13 @@ from torch.utils.data import DataLoader, Dataset, random_split
 import torchaudio
 from torch.nn import functional as F
 
-class SC09Dataset(Dataset):
-    # speech with diverse length, could use mask to adjust
+class DcaseDevDataset(Dataset):
     
-    def __init__(self, path, data_splits, 
-                 n_fft, hop_length, 
+    
+    def __init__(self, 
+                 paths, 
+                 n_fft, 
+                 hop_length, 
                  num_frames, 
                  shuffle_spec=False):
         super().__init__()
@@ -23,13 +25,22 @@ class SC09Dataset(Dataset):
                               center=True, return_complex=True)
             
         self.shuffle_spec = shuffle_spec
-
-        self.filenames = []
-        for data_split in data_splits:
-            self.filenames += glob.glob(f'{path}/{data_split}/*.wav', recursive=True)
+        filenames = []
+        for path in paths:
+            filenames += glob.glob(f'{path}/**/*.wav', recursive=True)
         
-        self.label_idx_dict = {'Zero': 0, 'One': 1, 'Two': 2, 'Three': 3, 'Four': 4, 
-                               'Five': 5, 'Six': 6, 'Seven': 7, 'Eight': 8, 'Nine': 9}
+        # magnitude sanity check
+        self.filenames = []
+        for filename in filenames:
+            x, _ = torchaudio.load(filename)
+            if x.abs().max().numpy() < 0.001:
+                continue
+            else:
+                self.filenames.append(filename)
+        
+        self.label_idx_dict = {'DogBark': 0, 'Footstep': 1, 'GunShot': 2, 
+                               'Keyboard': 3, 'MovingMotorVehicle': 4, 
+                               'Rain': 5, 'Sneeze_Cough': 6}
             
     def __len__(self):
         return len(self.filenames)
@@ -39,30 +50,29 @@ class SC09Dataset(Dataset):
         x, _ = torchaudio.load(audio_filename)
         
         # padding
-        target_len = (self.num_frames - 1) * self.hop_length
+        target_len = (self.num_frames - 1) * self.hop_length # + n_fft?
         current_len = x.size(-1)
         pad = max(target_len - current_len, 0)
         if pad == 0:
             # extract random part of the audio file
             if self.shuffle_spec:
-                start = int(np.random.uniform(0, current_len-target_len))
+                start = int(np.random.uniform(0, current_len-target_len)) # random starting point
             else:
-                start = int((current_len-target_len)/2)
+                # start = int((current_len-target_len)/2) # start at half the difference
+                start = 0
             x = x[..., start:start+target_len]
         else:
             # pad audio if the length T is smaller than num_frames
-            x = F.pad(x, (pad//2, pad//2+(pad%2)), mode='constant')
-            
-        # normalization
-        normfac = x.abs().max()
-        x = x / normfac
-        
+            x = F.pad(x, (pad//2, pad//2+(pad%2)), mode='reflect')
+#             x = F.pad(y.unsqueeze(1), (int((n_fft-hop_size)/2), int((n_fft-hop_size)/2)), mode='reflect')
+
+
         # STFT
         window = torch.hann_window(self.n_fft, periodic=True).to(x.device)
         X = torch.stft(x, window=window, normalized=True, **self.stft_args)
 
         # label
-        class_name = audio_filename.split('/')[-1].split('_')[0]
+        class_name = audio_filename.split('/')[-2]
         return {'audio': X, 'label': self.label_idx_dict[class_name]}
     
 class Collator:
@@ -75,12 +85,14 @@ class Collator:
     def collate(self, minibatch):
     
         audio = np.stack([record['audio'] for record in minibatch if 'audio' in record])
+#         wav_mag = np.stack([record['wav_mag'] for record in minibatch if 'wav_mag' in record])
         class_labels = [record['label'] for record in minibatch if 'label' in record]
         class_labels = np.array(class_labels)
-        return {'audio': torch.from_numpy(audio), 'label': torch.from_numpy(class_labels)}
+        return {'audio': torch.from_numpy(audio), 
+                'label': torch.from_numpy(class_labels)}
     
 
-class SC09DataModule(LightningDataModule):
+class DcaseDevDataModule(LightningDataModule):
     """A DataModule implements 5 key methods:
     
         def prepare_data(self):
@@ -156,24 +168,16 @@ class SC09DataModule(LightningDataModule):
         careful not to execute things like random split twice!
         """
         # load and split datasets only if not loaded already
-        self.data_train = SC09Dataset(path=self.hparams.data_dir, 
-                                          data_splits=['train', 'valid'], 
+        if self.data_train is None:
+            dataset = DcaseDevDataset(paths=[self.hparams.data_dir], 
                                           n_fft=self.hparams.n_fft, 
                                           hop_length=self.hparams.hop_length, 
                                           num_frames=self.hparams.num_frames, 
-                                          shuffle_spec=True)
-        self.data_val = SC09Dataset(path=self.hparams.data_dir, 
-                                        data_splits=['valid'],
-                                        n_fft=self.hparams.n_fft, 
-                                        hop_length=self.hparams.hop_length, 
-                                        num_frames=self.hparams.num_frames, 
-                                        shuffle_spec=False)
-        self.data_test = SC09Dataset(path=self.hparams.data_dir, 
-                                         data_splits=['test'],
-                                         n_fft=self.hparams.n_fft,
-                                         hop_length=self.hparams.hop_length, 
-                                         num_frames=self.hparams.num_frames, 
-                                         shuffle_spec=False)
+                                          shuffle_spec=False)
+            train_size = int(0.95 * len(dataset))
+            val_size = int(0.05 * len(dataset))
+            test_size = len(dataset) - train_size - val_size
+            self.data_train, self.data_val, self.data_test = random_split(dataset, [train_size, val_size, test_size])
         
     def spec_fwd(self, spec):
         '''
@@ -245,12 +249,21 @@ if __name__ == "__main__":
     import pyrootutils
     
     root = pyrootutils.setup_root(__file__, pythonpath=True)
-    cfg = omegaconf.OmegaConf.load(root / "configs" / "datamodule" / "sc09_complex.yaml")
-    cfg.data_dir = '/storageNVME/ge/sc09'
+    cfg = omegaconf.OmegaConf.load(root / "configs" / "datamodule" / "dcaseDev_complex.yaml")
+    cfg.data_dir = '/storageNVME/ge/DCASEFoleySoundSynthesisDevSet'
+    cfg.num_workers = 0
+    cfg.batch_size = 1
+    cfg.hop_length = 128
+    cfg.num_frames = 768
+    cfg.n_fft = 510
     dataset = hydra.utils.instantiate(cfg)
     dataset.setup()
-    print(len(dataset.data_train))
+    wav_mags = []
     for data_item in (dataset.train_dataloader()):
-        audio_compess = dataset.spec_fwd(data_item['audio'])
-        isnan = torch.sum(torch.isnan(audio_compess.abs()))
-        print(audio_compess.real.max(), audio_compess.imag.max())
+        
+        wav_mag = data_item['wav_mag'].numpy()
+        if wav_mag < 0.01:
+            wav_mags.append(wav_mag)
+#             print(wav_mag)
+    print(len(wav_mags))
+

@@ -1,0 +1,70 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=example
+
+defaults:
+  - override /datamodule: sc09_complex.yaml
+  - override /model: diffunet_complex.yaml
+  - override /callbacks: custom_exp2.yaml
+  - override /trainer: gpu.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["sc09", "diffunet_complex", "conditional"]
+num_classes : 10
+audio_len: 128
+audio_frequency: 256
+seed: 12345
+
+trainer:
+  min_epochs: 800
+  max_epochs: 800
+
+model:
+  use_ema: False
+  audio_sample_rate: 16000
+  generated_frame_length: ${audio_len}
+  generated_frequency: ${audio_frequency}
+  generated_sample_class: ${num_classes}
+  optimizer:
+    lr: 4e-5
+  net:
+    _target_: src.models.components.backbones.unet2d.BaseUnet
+    dim: 128
+    num_classes: ${num_classes}
+    cfg: True
+    cond_drop_prob: 0.1
+    dim_mults: [1, 2, 2, 2]
+    channels: 2
+    num_resnet_blocks: 2
+    resnet_groups: 8
+    layer_attns: [False, False, True, True]
+    layer_cross_attns: [False, False, True, True]
+    attn_heads: 2
+    ff_mult: 2.
+    memory_efficient: True
+  diffusion:
+    _target_: src.models.components.diffusion.VEluDiffusion
+  noise_distribution:
+    _target_: src.models.components.distribution.UniformDistribution
+    vmin: 0.00001
+    vmax: 1.0
+  sampler:
+    rho: 1.0
+    num_steps: 50
+    cond_scale: 9.0
+  noise_scheduler:
+    sigma_min : 0.0001
+    sigma_max : 3.0 
+    rho : 9.0
+    num_steps : 50
+
+datamodule:
+  batch_size: 32
+
+logger:
+  wandb:
+    tags: ${tags}
+    group: "diffaudio-sc09-complex"
