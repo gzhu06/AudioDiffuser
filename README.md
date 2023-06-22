@@ -119,10 +119,7 @@ class Diffusion(nn.Module):
 ```
 
 ### 2.Sampler
-```python
-def
-
-```
+Different samplers take different parameters 
 
 ### 3.Scheduler
 

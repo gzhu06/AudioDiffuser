@@ -14,7 +14,7 @@ defaults:
 
 tags: ["dcaseDev", "diffunet_complex", "conditional"]
 num_classes : 7
-audio_len: 768 # 32768 * 2
+audio_len: 704 # 32768 * 2
 audio_frequency: 256
 seed: 12345
 
@@ -46,11 +46,11 @@ model:
     ff_mult: 2.
     memory_efficient: True
   diffusion:
-    sigma_data : 0.2
-    dynamic_threshold : 0.0
+    _target_: src.models.components.diffusion.VEluDiffusion
   noise_distribution:
-    mean : -3.0 
-    std : 1.0
+    _target_: src.models.components.distribution.UniformDistribution
+    vmin: 0.00001
+    vmax: 1.0
   sampler:
     rho: 1.0
     num_steps: 50

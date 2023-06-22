@@ -17,16 +17,16 @@ audio_frequency: 256
 seed: 12345
 
 trainer:
-  min_epochs: 1600
-  max_epochs: 1600
+  min_epochs: 800
+  max_epochs: 800
 
 model:
   use_ema: False
   audio_sample_rate: 22050
+  total_test_samples: 700
   generated_frame_length: ${audio_len}
   generated_frequency: ${audio_frequency}
   generated_sample_class: ${num_classes}
-  total_test_samples: 700
   optimizer:
     lr: 4e-5
   net:
@@ -45,15 +45,15 @@ model:
     ff_mult: 2.
     memory_efficient: True
   diffusion:
-    sigma_data : 0.2
-    dynamic_threshold : 0.0
+    _target_: src.models.components.diffusion.VEluDiffusion
   noise_distribution:
-    mean : -3.0 
-    std : 1.0
+    _target_: src.models.components.distribution.UniformDistribution
+    vmin: 0.00001
+    vmax: 1.0
   sampler:
     rho: 1.0
     num_steps: 50
-    cond_scale: 12.0
+    cond_scale: 3.0
   noise_scheduler:
     sigma_min : 0.0001
     sigma_max : 3.0 
@@ -61,7 +61,12 @@ model:
     num_steps : 50
 
 datamodule:
-  batch_size: 25
+  batch_size: 6
+  spec_factor: 0.3
+  spec_abs_exponent: 0.5
+  hop_length: 128
+  num_frames: ${audio_len}
+  n_fft: 510
 
 logger:
   wandb:

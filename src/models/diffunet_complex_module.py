@@ -189,7 +189,7 @@ class DiffUnetComplexModule(LightningModule):
 
     def test_epoch_end(self, outputs: List[Any]):
         print('Generating test samples....................')
-        test_batch = 20
+        test_batch = 28
         iteration = self.total_test_samples // test_batch
         target_classes = list(range(self.generated_sample_class))
         test_sample_folder = os.path.join(self.logger.save_dir, 'test_samples')
@@ -204,8 +204,8 @@ class DiffUnetComplexModule(LightningModule):
                 window = torch.hann_window(stft_args['n_fft'], periodic=True).to(device)
 #                 target_class = torch.from_numpy(np.random.choice(target_classes, 
 #                                                                  test_batch)).to(device)
-                target_class = torch.from_numpy(2*np.ones(test_batch).astype(int)).to(device)
-#                 target_class = torch.from_numpy((np.arange(test_batch)%self.generated_sample_class).astype(int)).to(device)
+#                 target_class = torch.from_numpy(0*np.ones(test_batch).astype(int)).to(device)
+                target_class = torch.from_numpy((np.arange(test_batch)%self.generated_sample_class).astype(int)).to(device)
                 diff_net = self.net_ema if self.use_ema else self.net
 
                 # input data
