@@ -1,4 +1,4 @@
-_target_: src.datamodules.sc09_complex_datamodule.SC09DataModule
+_target_: src.data.sc09_complex_datamodule.SC09DataModule
 data_dir: ${paths.data_dir}/sc09
 batch_size: 4
 num_workers: 8

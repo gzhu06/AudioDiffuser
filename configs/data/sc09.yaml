@@ -1,4 +1,4 @@
-_target_: src.datamodules.sc09_datamodule.SC09DataModule
+_target_: src.data.sc09_datamodule.SC09DataModule
 data_dir: ${paths.data_dir}/sc09/
 audio_len: 16000
 batch_size: 4

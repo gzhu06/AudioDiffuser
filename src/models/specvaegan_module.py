@@ -187,7 +187,7 @@ class SpecVAEGANModule(LightningModule):
             return discr_loss
 
 
-    def training_epoch_end(self, outputs: List[Any]):
+    def on_train_epoch_end(self, outputs: List[Any]):
         # `outputs` is a list of dicts returned from `training_step()`
 
         # Warning: when overriding `training_epoch_end()`, lightning accumulates outputs from all batches of the epoch
@@ -226,7 +226,7 @@ class SpecVAEGANModule(LightningModule):
                 plt.close()
                 
             
-    def validation_epoch_end(self, outputs: List[Any]):
+    def on_validation_epoch_end(self, outputs: List[Any]):
 
         pass
 

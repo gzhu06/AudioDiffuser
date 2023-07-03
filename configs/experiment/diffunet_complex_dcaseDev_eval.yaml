@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /datamodule: dcaseDev_complex.yaml
+  - override /data: dcaseDev_complex.yaml
   - override /model: diffunet_complex.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
@@ -60,7 +60,7 @@ model:
     rho : 9.0
     num_steps : 50
 
-datamodule:
+data:
   batch_size: 25
 
 logger:

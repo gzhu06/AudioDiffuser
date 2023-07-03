@@ -1,56 +1,43 @@
-import pyrootutils
-
-root = pyrootutils.setup_root(
-    search_from=__file__,
-    indicator=[".git"],
-    pythonpath=True,
-    dotenv=True,
-)
-
-# ------------------------------------------------------------------------------------ #
-# `pyrootutils.setup_root(...)` above is optional line to make environment more convenient
-# should be placed at the top of each entry file
-#
-# main advantages:
-# - allows you to keep all entry files in "src/" without installing project as a package
-# - launching python file works no matter where is your current work dir
-# - automatically loads environment variables from ".env" if exists
-#
-# how it works:
-# - `setup_root()` above recursively searches for either ".git" or "pyproject.toml" in present
-#   and parent dirs, to determine the project root dir
-# - adds root dir to the PYTHONPATH (if `pythonpath=True`), so this file can be run from
-#   any place without installing project as a package
-# - sets PROJECT_ROOT environment variable which is used in "configs/paths/default.yaml"
-#   to make all paths always relative to project root
-# - loads environment variables from ".env" in root dir (if `dotenv=True`)
-#
-# you can remove `pyrootutils.setup_root(...)` if you:
-# 1. either install project as a package or move each entry file to the project root dir
-# 2. remove PROJECT_ROOT variable from paths in "configs/paths/default.yaml"
-#
-# https://github.com/ashleve/pyrootutils
-# ------------------------------------------------------------------------------------ #
-
 from typing import List, Optional, Tuple
 
 import hydra
-import pytorch_lightning as pl
+import lightning as L
+import pyrootutils
+import torch
+from lightning import Callback, LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
-from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.loggers import LightningLoggerBase
+
+pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+# ------------------------------------------------------------------------------------ #
+# the setup_root above is equivalent to:
+# - adding project root dir to PYTHONPATH
+#       (so you don't need to force user to install project as a package)
+#       (necessary before importing any local modules e.g. `from src import utils`)
+# - setting up PROJECT_ROOT environment variable
+#       (which is used as a base for paths in "configs/paths/default.yaml")
+#       (this way all filepaths are the same no matter where you run the code)
+# - loading environment variables from ".env" in root dir
+#
+# you can remove it if you:
+# 1. either install project as a package or move entry files to project root dir
+# 2. set `root_dir` to "." in "configs/paths/default.yaml"
+#
+# more info: https://github.com/ashleve/pyrootutils
+# ------------------------------------------------------------------------------------ #
 
 from src import utils
 
 log = utils.get_pylogger(__name__)
+
 
 @utils.task_wrapper
 def train(cfg: DictConfig) -> Tuple[dict, dict]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
     training.
 
-    This method is wrapped in optional @task_wrapper decorator which applies extra utilities
-    before and after the call.
+    This method is wrapped in optional @task_wrapper decorator, that controls the behavior during
+    failure. Useful for multiruns, saving info about the crash, etc.
 
     Args:
         cfg (DictConfig): Configuration composed by Hydra.
@@ -61,10 +48,10 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
-        pl.seed_everything(cfg.seed, workers=True)
+        L.seed_everything(cfg.seed, workers=True)
 
-    log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
-    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
+    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
+    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
@@ -73,7 +60,7 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
 
     log.info("Instantiating loggers...")
-    logger: List[LightningLoggerBase] = utils.instantiate_loggers(cfg.get("logger"))
+    logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"))
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=logger)
@@ -91,10 +78,13 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
         log.info("Logging hyperparameters!")
         utils.log_hyperparameters(object_dict)
 
+    if cfg.get("compile"):
+        log.info("Compiling model!")
+        model = torch.compile(model)
+
     if cfg.get("train"):
         log.info("Starting training!")
-        trainer.fit(model=model, datamodule=datamodule, 
-                    ckpt_path=cfg.get("ckpt_path"))
+        trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
 
     train_metrics = trainer.callback_metrics
 
@@ -114,8 +104,12 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
 
     return metric_dict, object_dict
 
+
 @hydra.main(version_base="1.3", config_path="../configs", config_name="train.yaml")
 def main(cfg: DictConfig) -> Optional[float]:
+    # apply extra utilities
+    # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
+    utils.extras(cfg)
 
     # train the model
     metric_dict, _ = train(cfg)

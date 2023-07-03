@@ -102,7 +102,7 @@ class SpecAutoEncoderModule(LightningModule):
             self.log("ema_decay", self.autoencoder_ema.get_current_decay())
         return {"loss": loss}
 
-    def training_epoch_end(self, outputs: List[Any]):
+    def on_train_epoch_end(self, outputs: List[Any]):
         # `outputs` is a list of dicts returned from `training_step()`
 
         # Warning: when overriding `training_epoch_end()`, lightning accumulates outputs from all batches of the epoch
@@ -146,7 +146,7 @@ class SpecAutoEncoderModule(LightningModule):
                 plt.savefig(mel_path)
                 plt.close()
 
-    def validation_epoch_end(self, outputs: List[Any]):
+    def on_validation_epoch_end(self, outputs: List[Any]):
 
         self.val_loss_best(self.val_loss.compute())  # update best so far val acc
         # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object

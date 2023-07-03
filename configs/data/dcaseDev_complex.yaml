@@ -1,4 +1,4 @@
-_target_: src.datamodules.dcaseDev_complex_datamodule.DcaseDevDataModule
+_target_: src.data.dcaseDev_complex_datamodule.DcaseDevDataModule
 data_dir: ${paths.data_dir}/DCASEFoleySoundSynthesisDevSet
 batch_size: 4
 num_workers: 8

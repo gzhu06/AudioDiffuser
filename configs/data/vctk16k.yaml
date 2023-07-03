@@ -1,4 +1,4 @@
-_target_: src.datamodules.vctk16k_datamodule.VCTK16kDataModule
+_target_: src.data.vctk16k_datamodule.VCTK16kDataModule
 data_dir: ${paths.data_dir}/vctk_16k/
 audio_len: 48000
 batch_size: 4

@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /datamodule: dcaseDev_complex.yaml
+  - override /data: dcaseDev_complex.yaml
   - override /model: diffunet_complex.yaml
   - override /callbacks: custom_exp2.yaml
   - override /trainer: gpu.yaml
@@ -61,7 +61,7 @@ model:
     rho : 9.0
     num_steps : 50
 
-datamodule:
+data:
   batch_size: 4
   spec_factor: 0.3
   spec_abs_exponent: 0.5
