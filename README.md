@@ -85,10 +85,11 @@ We list implemented "essential oils" for the audio diffuser, the following examp
 |Diff-UNet-Complex | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09.yaml)|
 |Diff-UNet-Complex-VP | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09_vp.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09_vp.yaml)|
 |Diff-UNet-Complex-V-objective | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09_vobj.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09_vobj.yaml)|
+|Diff-UNet-Complex-CFG | DCASE2023-task7|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_dcaseDev_cfg.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_dcaseDev_cfg.yaml)|
 | VQ-GAN(WIP)|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |[vqgan1d_vctk.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
 
 ### Demo Page
-We generate samples (if any) from pretrained models in [example section](#examples).
+We generate samples (if any) from pretrained models in [example section](#examples), hosted in the branch [web_demo](https://github.com/gzhu06/AudioDiffuser/tree/web_demo) at [https://gzhu06.github.io/AudioDiffuser/](https://gzhu06.github.io/AudioDiffuser/).
 
 ## Diffusion components
 In this repo, we mainly use the desnoising score matching formulation discussed in [EDM](https://github.com/NVlabs/edm) based on [Audio Diffusion release v0.0.94](https://github.com/archinetai/audio-diffusion-pytorch/releases/tag/v0.0.94). In EDM, a common framework is proposed for many diffusion models and decouples the design of sampling schedule, noise level parameterization etc.

@@ -189,7 +189,7 @@ class DiffUnetComplexModule(LightningModule):
 
     def test_epoch_end(self, outputs: List[Any]):
         print('Generating test samples....................')
-        test_batch = 28
+        test_batch = 14 #28
         iteration = self.total_test_samples // test_batch
         target_classes = list(range(self.generated_sample_class))
         test_sample_folder = os.path.join(self.logger.save_dir, 'test_samples')
