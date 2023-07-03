@@ -194,3 +194,7 @@ body {
       color: #888888;
       font-size: 0.9em;
   }
+
+  :root {
+    --dcaset-tab-font-size: 15px;
+  }
