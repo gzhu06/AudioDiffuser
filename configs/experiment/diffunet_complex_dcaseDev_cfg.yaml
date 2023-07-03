@@ -32,7 +32,7 @@ model:
     lr: 4e-5
   net:
     _target_: src.models.components.backbones.unet2d.BaseUnet
-    dim: 128
+    dim: 192
     num_classes: ${num_classes}
     cfg: True
     cond_drop_prob: 0.1
@@ -62,7 +62,7 @@ model:
     num_steps : 50
 
 datamodule:
-  batch_size: 6
+  batch_size: 4
   spec_factor: 0.3
   spec_abs_exponent: 0.5
   hop_length: 128

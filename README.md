@@ -76,7 +76,7 @@ Or evaluation:
 CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precision=16 experiment=example2.yaml
 ```
 
-### Examples
+<!-- ### Examples
 We list implemented "essential oils" for the audio diffuser, the following example recipes are trained and verified.
 
 | **Model**   | **Dataset**|**Pytorch-lightning Script** |**Config** |
@@ -86,7 +86,7 @@ We list implemented "essential oils" for the audio diffuser, the following examp
 |Diff-UNet-Complex-VP | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09_vp.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09_vp.yaml)|
 |Diff-UNet-Complex-V-objective | SC09|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_sc09_vobj.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_sc09_vobj.yaml)|
 |Diff-UNet-Complex-CFG | DCASE2023-task7|[diffunet_complex_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/diffunet_complex_module.py) | [diffunet_complex_dcaseDev_cfg.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/diffunet_complex_dcaseDev_cfg.yaml)|
-| VQ-GAN(WIP)|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |[vqgan1d_vctk.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)|
+| VQ-GAN(WIP)|VCTK|[vqgan_module.py](https://github.com/gzhu06/AudioDiffuser/blob/main/src/models/vqgan_module.py) |[vqgan1d_vctk.yaml](https://github.com/gzhu06/AudioDiffuser/blob/main/configs/experiment/vqgan1d_vctk.yaml)| -->
 
 ### Demo Page
 We generate samples (if any) from pretrained models in [example section](#examples), hosted in the branch [web_demo](https://github.com/gzhu06/AudioDiffuser/tree/web_demo) at [https://gzhu06.github.io/AudioDiffuser/](https://gzhu06.github.io/AudioDiffuser/).
