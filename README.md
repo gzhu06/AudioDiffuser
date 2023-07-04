@@ -45,8 +45,8 @@ cd AudioDiffuser
 conda create -n diffaudio python=3.8
 conda activate diffaudio
 
-# install pytorch (>=1.12.0), e.g. with cuda=10.2, we have:
-conda install pytorch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0 cudatoolkit=10.2 -c pytorch
+# install pytorch (>=2.0.1), e.g. with cuda=11.7, we have:
+conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
 
 # install requirements
 pip install -r requirements.txt
@@ -63,6 +63,8 @@ Train model with chosen experiment configuration from [configs/experiment/](conf
 ```bash ddp mixed precision
 CUDA_VISIBLE_DEVICES=0,3 python src/train.py trainer=ddp.yaml trainer.devices=2 experiment=example.yaml +trainer.precision=16-mixed
 ```
+
+For RTX 4090, add `NCCL_P2P_DISABLE=1` ([verified, ref here](https://discuss.pytorch.org/t/ddp-training-on-rtx-4090-ada-cu118/168366)) otherwise, DDP will stuck.
 
 Or train model with  single GPU resume from a checkpoint:
 
