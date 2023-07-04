@@ -204,8 +204,8 @@ class Attention(nn.Module):
 
         out = einsum('b h i j, b j d -> b h i d', attn, v)
 
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        out = rearrange(out, 'b h n d -> b n (h d)').contiguous()
+        return self.to_out(out).contiguous()
 
 # decoder
 
@@ -252,21 +252,9 @@ def Downsample(dim, dim_out = None):
     # named SP-conv in the paper, but basically a pixel unshuffle
     dim_out = default(dim_out, dim)
     return nn.Sequential(
-        Rearrange('b c (h s1) (w s2) -> b (c s1 s2) h w', s1 = 2, s2 = 2),
+        Rearrange('b c (h s1) (w s2) -> b (c s1 s2) h w', s1=2, s2=2),
         nn.Conv2d(dim * 4, dim_out, 1)
     )
-
-class SinusoidalPosEmb(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, x):
-        half_dim = self.dim // 2
-        emb = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, device = x.device) * -emb)
-        emb = rearrange(x, 'i -> i 1') * rearrange(emb, 'j -> 1 j')
-        return torch.cat((emb.sin(), emb.cos()), dim = -1)
 
 class LearnedSinusoidalPosEmb(nn.Module):
     """ following @crowsonkb 's lead with learned sinusoidal pos emb """
@@ -299,14 +287,14 @@ class Block(nn.Module):
         self.project = nn.Conv2d(dim, dim_out, 3, padding = 1)
 
     def forward(self, x, scale_shift = None):
-        x = self.groupnorm(x)
+        x = self.groupnorm(x).contiguous()
 
         if exists(scale_shift):
             scale, shift = scale_shift
             x = x * (scale + 1) + shift
 
         x = self.activation(x)
-        return self.project(x)
+        return self.project(x).contiguous()
 
 class ResnetBlock(nn.Module):
     def __init__(
@@ -372,7 +360,7 @@ class ResnetBlock(nn.Module):
 
         h = h * self.gca(h)
 
-        return h + self.res_conv(x)
+        return h + self.res_conv(x).contiguous()
 
 class CrossAttention(nn.Module):
     def __init__(
@@ -448,8 +436,8 @@ class CrossAttention(nn.Module):
         attn = attn.to(sim.dtype)
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        out = rearrange(out, 'b h n d -> b n (h d)').contiguous()
+        return self.to_out(out).contiguous()
 
 class LinearCrossAttention(CrossAttention):
     def forward(self, x, context, mask = None):
@@ -633,10 +621,10 @@ class TransformerBlock(nn.Module):
 
         for attn, ff in self.layers:
             x = attn(x, context = context) + x
-            x = ff(x) + x
+            x = ff(x).contiguous() + x
 
         x, = unpack(x, ps, 'b * c')
-        x = rearrange(x, 'b h w c -> b c h w')
+        x = rearrange(x, 'b h w c -> b c h w').contiguous()
         return x
 
 class LinearAttentionTransformerBlock(nn.Module):
@@ -687,10 +675,11 @@ class CrossEmbedLayer(nn.Module):
 
         self.convs = nn.ModuleList([])
         for kernel, dim_scale in zip(kernel_sizes, dim_scales):
-            self.convs.append(nn.Conv2d(dim_in, dim_scale, kernel, stride = stride, padding = (kernel - stride) // 2))
+            self.convs.append(nn.Conv2d(dim_in, dim_scale, kernel, 
+                                        stride=stride, padding=(kernel-stride)//2))
 
     def forward(self, x):
-        fmaps = tuple(map(lambda conv: conv(x), self.convs))
+        fmaps = tuple(map(lambda conv: conv(x).contiguous(), self.convs))
         return torch.cat(fmaps, dim = 1)
 
 class UpsampleCombiner(nn.Module):
@@ -767,15 +756,13 @@ class Unet(nn.Module):
         scale_skip_connection = True,
         final_resnet_block = True,
         final_conv_kernel_size = 3,
-        self_cond = False,
         resize_mode = 'nearest',
         combine_upsample_fmaps = False,      # combine feature maps from all upsample blocks, used in unet squared successfully
-        pixel_shuffle_upsample = True,       # may address checkboard artifacts
+        pixel_shuffle_upsample = False,       # may address checkboard artifacts
     ):
         super().__init__()
 
-        # guide researchers
-
+        # guide researchers from lucidrians
         assert attn_heads > 1, 'you need to have more than 1 attention head, ideally at least 4 or 8'
 
         if dim < 128:
@@ -787,10 +774,8 @@ class Unet(nn.Module):
 
         # (1) in cascading diffusion, one concats the low resolution image, blurred, for conditioning the higher resolution synthesis
         # (2) in self conditioning, one appends the predict x0 (x_start)
-        init_channels = channels * (1 + int(self_cond))
+        init_channels = channels
         init_dim = default(init_dim, dim)
-
-        self.self_cond = self_cond
 
         # initial convolution
         if init_cross_embed:
@@ -884,9 +869,7 @@ class Unet(nn.Module):
 
         # layers
         self.downs = nn.ModuleList([])
-        self.ups = nn.ModuleList([])
         num_resolutions = len(in_out)
-
         layer_params = [num_resnet_blocks, 
                         resnet_groups, 
                         layer_attns, 
@@ -970,6 +953,7 @@ class Unet(nn.Module):
                                       groups = resnet_groups[-1])
 
         # upsample klass
+        self.ups = nn.ModuleList([])
         upsample_klass = Upsample if not pixel_shuffle_upsample else PixelShuffleUpsample
 
         # upsampling layers
@@ -1049,15 +1033,9 @@ class Unet(nn.Module):
                 classes=None,
                 x_mask=None,
                 cond_drop_prob=None,
-                *,
-                self_cond = None):
+                **kwargs):
         
         batch_size, device = x.shape[0], x.device
-
-        # condition on self
-        if self.self_cond:
-            self_cond = default(self_cond, lambda: torch.zeros_like(x))
-            x = torch.cat((x, self_cond), dim = 1)
             
         # initial convolution
         x = self.init_conv(x)

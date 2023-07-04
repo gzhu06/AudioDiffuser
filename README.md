@@ -61,13 +61,13 @@ A config management tool that decouples dataloaders, training, network backbones
 Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
 
 ```bash ddp mixed precision
-CUDA_VISIBLE_DEVICES=0,3 python src/train.py trainer=ddp trainer.devices=2 experiment=example.yaml +trainer.precision=16
+CUDA_VISIBLE_DEVICES=0,3 python src/train.py trainer=ddp.yaml trainer.devices=2 experiment=example.yaml +trainer.precision=16-mixed
 ```
 
 Or train model with  single GPU resume from a checkpoint:
 
 ```bash
-CUDA_VISIBLE_DEVICES=3 python src/train.py experiment=example1.yaml +trainer.precision=16 ckpt_path="/path/to/ckpt/name.ckpt"
+CUDA_VISIBLE_DEVICES=3 python src/train.py experiment=example1.yaml +trainer.precision=16-mixed ckpt_path="/path/to/ckpt/name.ckpt"
 ```
 
 Or evaluation:
@@ -139,9 +139,10 @@ super-resolution
 ## TODO
 ### Code
 - [ ] DDIM
+- [ ] write `on_validation_end` into callbacks
 - [ ] consistency models
 - [ ] applications: vocoder, super-resolution, speech enhancement and source separation
-- [ ] rvq-vae (code is done, need to be verified with larger machines)
+- [ ] rvq-vae (need to rewrite, the current training yields 'robotic' samples)
 - [ ] sc09 evaluation
 - [ ] ViT transformer backbone (?)
 - [ ] discrete diffusion

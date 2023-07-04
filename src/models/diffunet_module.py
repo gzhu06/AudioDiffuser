@@ -115,7 +115,7 @@ class DiffUnetModule(LightningModule):
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
         return {"loss": loss}
 
-    def on_validation_epoch_end(self, outputs: List[Any]):
+    def on_validation_epoch_end(self):
 
         self.val_loss_best(self.val_loss.compute())  # update best so far val acc
         # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object

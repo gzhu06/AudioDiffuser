@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /datamodule: sc09.yaml
+  - override /data: sc09.yaml
   - override /model: diffunet.yaml
   - override /callbacks: custom_exp2.yaml
   - override /trainer: gpu.yaml
@@ -45,7 +45,7 @@ model:
     rho : 9.0
     num_steps : 50
 
-datamodule:
+data:
   batch_size: 64
   audio_len: ${audio_len} 
 

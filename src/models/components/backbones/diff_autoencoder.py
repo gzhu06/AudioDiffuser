@@ -239,55 +239,6 @@ class DiffAutoEncoder(nn.Module):
         intp = x_semantic[0][None] * (1 - alpha[:, None]) + x_semantic[1][None] * alpha[:, None]
         return intp.unsqueeze(2)
     
-    # def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
-    #     """
-    #     Reparameterization trick to sample from N(mu, var) from
-    #     N(0,1).
-    #     :param mu: (Tensor) Mean of the latent Gaussian [B x D]
-    #     :param logvar: (Tensor) Standard deviation of the latent Gaussian [B x D]
-    #     :return: (Tensor) [B x D]
-    #     """
-    #     assert self.conf.is_stochastic
-    #     std = torch.exp(0.5 * logvar)
-    #     eps = torch.randn_like(std)
-    #     return eps * std + mu
-
-    # def sample_z(self, n: int, device):
-    #     assert self.conf.is_stochastic
-    #     return torch.randn(n, self.conf.enc_out_channels, device=device)
-
-    # @property
-    # def stylespace_sizes(self):
-    #     modules = list(self.input_blocks.modules()) + list(
-    #         self.middle_block.modules()) + list(self.output_blocks.modules())
-    #     sizes = []
-    #     for module in modules:
-    #         if isinstance(module, ResBlock):
-    #             linear = module.cond_emb_layers[-1]
-    #             sizes.append(linear.weight.shape[0])
-    #     return sizes
-
-    # def encode_stylespace(self, x, return_vector: bool = True):
-    #     """
-    #     encode to style space
-    #     """
-    #     modules = list(self.input_blocks.modules()) + list(
-    #         self.middle_block.modules()) + list(self.output_blocks.modules())
-    #     # (n, c)
-    #     cond = self.encoder.forward(x)
-    #     S = []
-    #     for module in modules:
-    #         if isinstance(module, ResBlock):
-    #             # (n, c')
-    #             s = module.cond_emb_layers.forward(cond)
-    #             S.append(s)
-
-    #     if return_vector:
-    #         # (n, sum_c)
-    #         return torch.cat(S, dim=1)
-    #     else:
-    #         return S
-
 
 class DiffCompSpecAutoEncoder(nn.Module):
 

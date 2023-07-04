@@ -92,7 +92,7 @@ class DiffUnetComplexModule(LightningModule):
 
         # update and log metrics
         self.train_loss(loss)
-        self.log("train/loss", self.train_loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log("train/loss", self.train_loss, on_step=True, on_epoch=True, prog_bar=True, sync_dist=True)
 
         # we can return here dict with any tensors
         # and then read it in some callback or in `training_epoch_end()` below
@@ -104,7 +104,7 @@ class DiffUnetComplexModule(LightningModule):
             self.log("ema_decay", self.net_ema.get_current_decay())
         return {"loss": loss}
 
-    def on_train_epoch_end(self, outputs: List[Any]):
+    def on_train_epoch_end(self):
         # `outputs` is a list of dicts returned from `training_step()`
 
         # Warning: when overriding `training_epoch_end()`, lightning accumulates outputs from all batches of the epoch
@@ -122,16 +122,17 @@ class DiffUnetComplexModule(LightningModule):
 
         # update and log metrics
         self.val_loss(loss)
-        self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val/loss", self.val_loss, on_step=False, 
+                 on_epoch=True, prog_bar=True, sync_dist=True)
         return {"loss": loss}
     
     @torch.no_grad()
-    def on_validation_epoch_end(self, outputs: List[Any]):
+    def on_validation_epoch_end(self):
 
         self.val_loss_best(self.val_loss.compute())  # update best so far val acc
         # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
         # otherwise metric would be reset by lightning after each epoch
-        self.log("val/loss_best", self.val_loss_best.compute(), prog_bar=True)
+        self.log("val/loss_best", self.val_loss_best.compute(), prog_bar=True, sync_dist=True)
         
         stft_args = self.trainer.datamodule.stft_args
         device = next(self.net.parameters()).device
@@ -172,11 +173,12 @@ class DiffUnetComplexModule(LightningModule):
                                        window=window, normalized=True,
                                        **stft_args)
             audio_sample = audio_sample.cpu()
-            
-        audio_save_dir = os.path.join(self.logger.save_dir, 'val_audio')
-        os.makedirs(audio_save_dir, exist_ok=True)
-        audio_path = os.path.join(audio_save_dir, 'val_' + str(self.global_step) + '.wav')
-        torchaudio.save(audio_path, audio_sample, self.audio_sample_rate)
+        
+        if self.trainer.is_global_zero:
+            audio_save_dir = os.path.join(self.logger.save_dir, 'val_audio')
+            os.makedirs(audio_save_dir, exist_ok=True)
+            audio_path = os.path.join(audio_save_dir, 'val_' + str(self.global_step) + '.wav')
+            torchaudio.save(audio_path, audio_sample, self.audio_sample_rate)
 
     def test_step(self, batch: Any, batch_idx: int):
         loss = self.model_step(batch)
@@ -241,9 +243,7 @@ class DiffUnetComplexModule(LightningModule):
                                             **stft_args)
 
                 audio_samples = audio_samples.cpu()
-                
-                
-            
+
                 for j in range(audio_samples.shape[0]):
                     audio_filename = 'test_'+str(target_class[j].item())+'_'+str(i*test_batch+j)+'.wav'
                     audio_path = os.path.join(test_sample_folder, audio_filename)
@@ -271,11 +271,3 @@ class DiffUnetComplexModule(LightningModule):
             }
         return {"optimizer": optimizer}
 
-if __name__ == "__main__":
-    import hydra
-    import omegaconf
-    import pyrootutils
-
-    root = pyrootutils.setup_root(__file__, pythonpath=True)
-    cfg = omegaconf.OmegaConf.load(root / "configs" / "model" / "diffwave.yaml")
-    _ = hydra.utils.instantiate(cfg)
