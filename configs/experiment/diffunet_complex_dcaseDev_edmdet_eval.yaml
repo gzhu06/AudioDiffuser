@@ -15,7 +15,7 @@ num_classes : 7
 audio_len: 704 # 32768 * 2
 audio_frequency: 256
 seed: 12345
-sampler_steps: 40
+sampler_steps: 35
 
 trainer:
   min_epochs: 1600
@@ -55,7 +55,8 @@ model:
     _target_: src.models.components.sampler.EDMAlphaSampler
     num_steps: ${sampler_steps}
     alpha: 1.0
-    cond_scale: 12.0
+    cond_scale: 15.0
+    use_heun: True
   noise_scheduler:
     _target_: src.models.components.scheduler.KarrasSchedule
     sigma_min : 0.0001

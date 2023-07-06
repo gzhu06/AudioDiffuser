@@ -15,7 +15,7 @@ num_classes : 7
 audio_len: 704 # 32768 * 2
 audio_frequency: 256
 seed: 12345
-sampler_steps: 50
+sampler_steps: 40
 
 trainer:
   min_epochs: 1600
@@ -56,14 +56,15 @@ model:
     num_steps: ${sampler_steps}
     s_tmin: 0.05
     s_tmax: 50.0
-    s_churn: 50.0
+    s_churn: 40.0
     s_noise: 1.003
     cond_scale: 12.0
+    use_heun: True
   noise_scheduler:
     _target_: src.models.components.scheduler.KarrasSchedule
-    sigma_min : 0.0001
-    sigma_max : 3.0
-    rho : 9.0
+    sigma_min : 0.002
+    sigma_max : 80.0
+    rho : 7.0
     num_steps : ${sampler_steps}
 
 data:

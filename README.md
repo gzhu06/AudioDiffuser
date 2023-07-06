@@ -61,7 +61,7 @@ A config management tool that decouples dataloaders, training, network backbones
 Train model with chosen experiment configuration from [configs/experiment/](configs/experiment/)
 
 ```bash ddp mixed precision
-CUDA_VISIBLE_DEVICES=0,3 python src/train.py trainer=ddp.yaml trainer.devices=2 experiment=example.yaml +trainer.precision=16-mixed
+CUDA_VISIBLE_DEVICES=0,3 python src/train.py trainer=ddp.yaml trainer.devices=2 experiment=example.yaml +trainer.precision=16-mixed +trainer.accumulate_grad_batches=4
 ```
 
 For RTX 4090, add `NCCL_P2P_DISABLE=1` ([verified, ref here](https://discuss.pytorch.org/t/ddp-training-on-rtx-4090-ada-cu118/168366)) otherwise, DDP will stuck.

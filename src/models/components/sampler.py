@@ -22,6 +22,7 @@ class VESampler(nn.Module):
         s_noise: float = 1,
         num_steps: int = 200,
         cond_scale: float = 1.0,
+        use_heun: bool = True
     ):
         super().__init__()
         self.s_tmin = s_tmin
@@ -30,6 +31,7 @@ class VESampler(nn.Module):
         self.s_noise = s_noise
         self.num_steps = num_steps
         self.cond_scale = cond_scale
+        self.use_heun = use_heun
         
         # Define sigma helper function
         self.sigma_inv = lambda sigma: sigma ** 2
@@ -41,7 +43,7 @@ class VESampler(nn.Module):
              fn: Callable, net: nn.Module, 
              t: float, t_next: float, 
              gamma: float, x_mask: Tensor=None, 
-             use_heun: bool=True, **kwargs) -> Tensor:
+             **kwargs) -> Tensor:
 
         # Increase noise temporarily.
         t_hat = self.sigma_inv((self.sigma(t) + gamma * self.sigma(t)))
@@ -58,7 +60,7 @@ class VESampler(nn.Module):
         x_next = x_hat + h * d
         
         # Apply 2nd order correction.
-        if t_next != 0 and use_heun:
+        if t_next != 0 and self.use_heun:
             t_prime = t_hat + h
             
             denoised_prime = fn(x_next, x_classes, 
@@ -75,7 +77,6 @@ class VESampler(nn.Module):
                 fn: Callable, 
                 net: nn.Module, 
                 sigmas: Tensor, # actually t
-                use_heun: bool=True,
                 **kwargs) -> Tensor:
         
         # here sigmas means t
@@ -99,7 +100,6 @@ class VESampler(nn.Module):
                           gamma=gammas[i],
                           t=t_steps[i], 
                           t_next=t_steps[i+1],
-                          use_heun=use_heun, 
                           **kwargs)
 
         return x.clamp(-1.0, 1.0)
@@ -119,6 +119,7 @@ class VPSampler(nn.Module):
         s_max: float = float('inf'),
         num_steps: int = 200,
         cond_scale: float = 1.0,
+        use_heun: bool = True
     ):
         super().__init__()
         self.beta_d = beta_d
@@ -130,6 +131,7 @@ class VPSampler(nn.Module):
         self.s_max = s_max
         self.num_steps = num_steps
         self.cond_scale = cond_scale
+        self.use_heun = use_heun
         
         ## Sampler helper function
         vp_sigma = lambda beta_d, beta_min: lambda t: (np.e ** (0.5 * beta_d * (t ** 2) + beta_min * t) - 1) ** 0.5
@@ -156,7 +158,7 @@ class VPSampler(nn.Module):
              fn: Callable, net: nn.Module, 
              t: float, t_next: float, 
              gamma: float, x_mask: Tensor=None, 
-             use_heun: bool=True, **kwargs) -> Tensor:
+             **kwargs) -> Tensor:
 
         # Increase noise temporarily.
         t_hat = self.sigma_inv((self.sigma(t) + gamma * self.sigma(t)))
@@ -173,7 +175,7 @@ class VPSampler(nn.Module):
         x_next = x_hat + h * d
         
         # Apply 2nd order correction.
-        if t_next != 0 and use_heun:
+        if t_next != 0 and self.use_heun:
             t_prime = t_hat + h
             
             denoised_prime = fn(x_next / self.scale(t_prime), x_classes, 
@@ -191,7 +193,6 @@ class VPSampler(nn.Module):
                 net: nn.Module, 
                 sigmas: Tensor, # actually t
                 x_mask: Tensor=None, 
-                use_heun: bool=True,
                 **kwargs) -> Tensor:
         
         t_steps = sigmas
@@ -212,7 +213,6 @@ class VPSampler(nn.Module):
                           t=t_steps[i], 
                           t_next=t_steps[i+1], 
                           gamma=gammas[i], 
-                          use_heun=use_heun, 
                           **kwargs)
 
         return x
@@ -230,18 +230,20 @@ class EDMAlphaSampler(nn.Module):
         alpha: float = 1.0,
         num_steps: int = 50,
         cond_scale: float = 1.0,
+        use_heun: bool = True
     ):
         super().__init__()
         self.alpha = alpha
         self.num_steps = num_steps
         self.cond_scale = cond_scale
+        self.use_heun = use_heun
 
     def step(self, x: Tensor, 
              x_classes: Tensor, 
              fn: Callable, net: nn.Module, 
              sigma: float, sigma_next: float, 
              x_mask: Tensor=None, 
-             use_heun: bool=True, **kwargs) -> Tensor:
+             **kwargs) -> Tensor:
         
         """One step of EDM alpha sampler"""
         # Select temporarily increased noise level
@@ -255,7 +257,7 @@ class EDMAlphaSampler(nn.Module):
         d = (x - denoised_cur) / sigma
 
         sigma_p = sigma + self.alpha * h
-        if sigma_p != 0 and use_heun:
+        if sigma_p != 0 and self.use_heun:
             # Second order correction
             x_p = x + self.alpha * h * d
             denoised_p = fn(x_p, x_classes, 
@@ -275,7 +277,6 @@ class EDMAlphaSampler(nn.Module):
                 fn: Callable, 
                 net: nn.Module, 
                 sigmas: Tensor, 
-                use_heun: bool=True,
                 **kwargs) -> Tensor:
         
         # pay attention to this step
@@ -287,7 +288,6 @@ class EDMAlphaSampler(nn.Module):
                           fn=fn, net=net, 
                           sigma=sigmas[i], 
                           sigma_next=sigmas[i+1], 
-                          use_heun=use_heun, 
                           **kwargs)
             
         return x
@@ -310,6 +310,7 @@ class EDMSampler(nn.Module):
         s_noise: float = 1.04,
         num_steps: int = 200,
         cond_scale: float = 1.0,
+        use_heun: bool = True
     ):
         super().__init__()
         self.s_tmin = s_tmin
@@ -318,13 +319,14 @@ class EDMSampler(nn.Module):
         self.s_churn = s_churn
         self.num_steps = num_steps
         self.cond_scale = cond_scale
+        self.use_heun = use_heun
 
     def step(self, x: Tensor, 
              x_classes: Tensor, 
              fn: Callable, net: nn.Module, 
              sigma: float, sigma_next: float, 
              gamma: float, x_mask: Tensor=None, 
-             use_heun: bool=True, **kwargs) -> Tensor:
+             **kwargs) -> Tensor:
         
         """One step of EDM sampler"""
         # Select temporarily increased noise level
@@ -345,7 +347,7 @@ class EDMSampler(nn.Module):
         x_next = x_hat + (sigma_next - sigma_hat) * d
 
         # Second order correction
-        if sigma_next != 0 and use_heun:
+        if sigma_next != 0 and self.use_heun:
             denoised_next = fn(x_next, x_classes, 
                                net=net, sigma=sigma_next, 
                                inference=True, 
@@ -354,7 +356,6 @@ class EDMSampler(nn.Module):
                                **kwargs)
             d_prime = (x_next - denoised_next) / sigma_next
             x_next = x_hat + 0.5 * (sigma_next - sigma_hat) * (d + d_prime)
-            
 
         return x_next
     
@@ -362,8 +363,7 @@ class EDMSampler(nn.Module):
                 x_classes: Tensor, 
                 fn: Callable, 
                 net: nn.Module, 
-                sigmas: Tensor, 
-                use_heun: bool=False,
+                sigmas: Tensor,
                 **kwargs) -> Tensor:
         
         # pay attention to this step
@@ -382,8 +382,7 @@ class EDMSampler(nn.Module):
                           fn=fn, net=net, 
                           sigma=sigmas[i], 
                           sigma_next=sigmas[i+1], 
-                          gamma=gammas[i], 
-                          use_heun=use_heun, 
+                          gamma=gammas[i],
                           **kwargs)
             
         return x

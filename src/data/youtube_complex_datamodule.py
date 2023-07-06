@@ -45,12 +45,12 @@ class YoutubeDataset(Dataset):
     def __getitem__(self, idx):
         audio_filename = self.filenames[idx]
         _, x = wavfile.read(audio_filename, mmap=True)
-        x = x / 32767.0
         
         target_len = (self.num_frames - 1) * self.hop_length # + n_fft?
         current_len = len(x)
         start = int(np.random.uniform(0, current_len-target_len)) # random starting point
         x = x[start:start+target_len]
+        x = x / 32767.0
         x = torch.from_numpy(x).unsqueeze(0)
             
         # STFT
