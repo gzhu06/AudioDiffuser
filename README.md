@@ -138,10 +138,10 @@ source separation
 vocoder
 super-resolution
 
+<!-- 
 ## TODO
 ### Code
-- [ ] DDIM
-- [ ] write `on_validation_end` into callbacks
+- [ ] add more samplers
 - [ ] consistency models
 - [ ] applications: vocoder, super-resolution, speech enhancement and source separation
 - [ ] rvq-vae (need to rewrite, the current training yields 'robotic' samples)
@@ -156,7 +156,7 @@ super-resolution
 - [ ] Scheduler
 
 ### Check TODO
-- Diffusion: ADM sampling
+- Diffusion: ADM sampling -->
 
 ## Notebooks
 

@@ -2,7 +2,7 @@
 
 defaults:
   - _self_
-  - datamodule: sc09.yaml # choose datamodule with `test_dataloader()` for evaluation
+  - data: sc09.yaml # choose datamodule with `test_dataloader()` for evaluation
   - model: diffwave.yaml
   - logger: tensorboard.yaml
   - trainer: gpu.yaml

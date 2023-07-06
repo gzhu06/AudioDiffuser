@@ -31,7 +31,7 @@ model:
     lr: 4e-5
   net:
     _target_: src.models.components.backbones.unet2d.BaseUnet
-    dim: 192
+    dim: 128
     num_classes: ${num_classes}
     cfg: True
     cond_drop_prob: 0.1

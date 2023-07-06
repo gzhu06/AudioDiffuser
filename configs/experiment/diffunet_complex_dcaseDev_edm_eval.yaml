@@ -6,17 +6,16 @@
 defaults:
   - override /data: dcaseDev_complex.yaml
   - override /model: diffunet_complex.yaml
-  - override /callbacks: custom_exp2.yaml
-  - override /trainer: gpu.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
 tags: ["dcaseDev", "diffunet_complex", "conditional"]
 num_classes : 7
-audio_len: 352 # 32768 * 2
+audio_len: 704 # 32768 * 2
 audio_frequency: 256
 seed: 12345
+sampler_steps: 50
 
 trainer:
   min_epochs: 1600
@@ -28,6 +27,7 @@ model:
   generated_frame_length: ${audio_len}
   generated_frequency: ${audio_frequency}
   generated_sample_class: ${num_classes}
+  total_test_samples: 700
   optimizer:
     lr: 4e-5
   net:
@@ -36,7 +36,7 @@ model:
     num_classes: ${num_classes}
     cfg: True
     cond_drop_prob: 0.1
-    dim_mults: [1, 2, 2, 2]
+    dim_mults: [1, 1, 2, 2]
     channels: 2
     num_resnet_blocks: 2
     resnet_groups: 8
@@ -52,22 +52,22 @@ model:
     mean : -3.0 
     std : 1.0
   sampler:
-    rho: 1.0
-    num_steps: 50
-    cond_scale: 9.0
+    _target_: src.models.components.sampler.EDMSampler
+    num_steps: ${sampler_steps}
+    s_tmin: 0.05
+    s_tmax: 50.0
+    s_churn: 50.0
+    s_noise: 1.003
+    cond_scale: 12.0
   noise_scheduler:
+    _target_: src.models.components.scheduler.KarrasSchedule
     sigma_min : 0.0001
-    sigma_max : 3.0 
+    sigma_max : 3.0
     rho : 9.0
-    num_steps : 50
+    num_steps : ${sampler_steps}
 
 data:
-  batch_size: 12
-  spec_factor: 0.3
-  spec_abs_exponent: 0.5
-  hop_length: 256
-  num_frames: ${audio_len}
-  n_fft: 510
+  batch_size: 25
 
 logger:
   wandb:

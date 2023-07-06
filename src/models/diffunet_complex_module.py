@@ -115,7 +115,7 @@ class DiffUnetComplexModule(LightningModule):
         # or using `on_train_epoch_end()` instead which doesn't accumulate outputs
 
         pass
-
+    
     def validation_step(self, batch: Any, batch_idx: int):
         
         loss = self.model_step(batch)
@@ -189,9 +189,10 @@ class DiffUnetComplexModule(LightningModule):
 
         return {"loss": loss}
 
-    def test_epoch_end(self, outputs: List[Any]):
+    def on_test_epoch_end(self):
         print('Generating test samples....................')
-        test_batch = 14 #28
+        test_batch = 28 #28
+        audio_dur = 4
         iteration = self.total_test_samples // test_batch
         target_classes = list(range(self.generated_sample_class))
         test_sample_folder = os.path.join(self.logger.save_dir, 'test_samples')
@@ -210,26 +211,10 @@ class DiffUnetComplexModule(LightningModule):
                 target_class = torch.from_numpy((np.arange(test_batch)%self.generated_sample_class).astype(int)).to(device)
                 diff_net = self.net_ema if self.use_ema else self.net
 
-                # input data
-                target_len = (self.generated_frame_length - 1) * stft_args['hop_length']
-                initial_noise = torch.randn(test_batch, target_len).to(device)
-                
-                if self.norm_wav:
-                    normfac = initial_noise.abs().max()
-                    initial_noise = initial_noise / normfac
+                ########
+                freq_bins = stft_args['n_fft'] // 2 + 1
+                X_noise = torch.randn(test_batch, 2, freq_bins, self.generated_frame_length).to(device)
 
-                # STFT
-                X_noise = torch.stft(initial_noise, 
-                                     window=window, 
-                                     return_complex=True, 
-                                     normalized=True,
-                                     **stft_args)
-
-                X_noise = X_noise.unsqueeze(1)
-                X_noise = self.trainer.datamodule.spec_fwd(X_noise)
-                X_noise = torch.cat((X_noise.real, X_noise.imag), dim=1)
-
-                # synthesize "complex" spec
                 pcomplex_spec = self.sampler(X_noise, target_class,
                                              fn=self.diffusion.denoise_fn, 
                                              net=diff_net, sigmas=self.noise_scheduler.to(device))
@@ -247,7 +232,7 @@ class DiffUnetComplexModule(LightningModule):
                 for j in range(audio_samples.shape[0]):
                     audio_filename = 'test_'+str(target_class[j].item())+'_'+str(i*test_batch+j)+'.wav'
                     audio_path = os.path.join(test_sample_folder, audio_filename)
-                    torchaudio.save(audio_path, audio_samples[j, :4*self.audio_sample_rate].unsqueeze(0), 
+                    torchaudio.save(audio_path, audio_samples[j, :audio_dur*self.audio_sample_rate].unsqueeze(0), 
                                     self.audio_sample_rate, bits_per_sample=16)
                 
     def configure_optimizers(self):

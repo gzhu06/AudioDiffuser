@@ -217,26 +217,95 @@ class VPSampler(nn.Module):
 
         return x
 
-class EDMSampler(nn.Module):
+class EDMAlphaSampler(nn.Module):
     """ 
-    EDM (https://arxiv.org/abs/2206.00364) sampler:
-    
-    Deterministic sampler (by default, the noise becomes 0 in line 6 in Algorithm 2): 
-    s_churn=0, s_noise=1, s_tmin=0, s_tmax=float('inf')
-    the second order correction seems to be problematic in deterministic mode 
-    
-    Stochastic sampler: 
-    s_churn=40 s_noise=1.003, s_tmin=0.05, s_tmax=50 
-
-    Because EDM uses second order ODE solver, the NFE is around the 
-    twice the number of steps. 
+    EDM (https://arxiv.org/abs/2206.00364) deterministic sampler Algo 3:
+    when setting Heun=False, it amounts to DDIM (Euler)
+    with Heun's sampler, the NFE is around the twice the number of steps. 
     
     """
 
     def __init__(
         self,
-        s_tmin: float = 0.0001,
-        s_tmax: float = 3.0,
+        alpha: float = 1.0,
+        num_steps: int = 50,
+        cond_scale: float = 1.0,
+    ):
+        super().__init__()
+        self.alpha = alpha
+        self.num_steps = num_steps
+        self.cond_scale = cond_scale
+
+    def step(self, x: Tensor, 
+             x_classes: Tensor, 
+             fn: Callable, net: nn.Module, 
+             sigma: float, sigma_next: float, 
+             x_mask: Tensor=None, 
+             use_heun: bool=True, **kwargs) -> Tensor:
+        
+        """One step of EDM alpha sampler"""
+        # Select temporarily increased noise level
+        h = sigma_next - sigma
+
+        # Evaluate ∂x/∂sigma at sigma_hat
+        denoised_cur =  fn(x, x_classes, net=net, 
+                           sigma=sigma, inference=True, 
+                           cond_scale=self.cond_scale, 
+                           x_mask=x_mask, **kwargs)
+        d = (x - denoised_cur) / sigma
+
+        sigma_p = sigma + self.alpha * h
+        if sigma_p != 0 and use_heun:
+            # Second order correction
+            x_p = x + self.alpha * h * d
+            denoised_p = fn(x_p, x_classes, 
+                            net=net, sigma=sigma_p, 
+                            inference=True, 
+                            cond_scale=self.cond_scale, 
+                            x_mask=x_mask, **kwargs)
+            d_p = (x_p - denoised_p) / sigma_p
+            x_next = x + h * ((1 - 0.5/self.alpha) * d + 0.5/self.alpha * d_p)
+        else:
+            x_next = x + h * d
+            
+        return x_next
+    
+    def forward(self, noise: Tensor, 
+                x_classes: Tensor, 
+                fn: Callable, 
+                net: nn.Module, 
+                sigmas: Tensor, 
+                use_heun: bool=True,
+                **kwargs) -> Tensor:
+        
+        # pay attention to this step
+        x = sigmas[0] * noise
+
+        # Denoise to sample
+        for i in range(self.num_steps-1):
+            x = self.step(x, x_classes, 
+                          fn=fn, net=net, 
+                          sigma=sigmas[i], 
+                          sigma_next=sigmas[i+1], 
+                          use_heun=use_heun, 
+                          **kwargs)
+            
+        return x
+
+class EDMSampler(nn.Module):
+    """ 
+    EDM (https://arxiv.org/abs/2206.00364) stochastic sampler:
+    s_churn=40 s_noise=1.003, s_tmin=0.05, s_tmax=50 
+    when setting s_churn = 0, it amounts to DDIM
+
+    with Heun's sampler, the NFE is around the twice the number of steps. 
+    
+    """
+
+    def __init__(
+        self,
+        s_tmin: float = 0,
+        s_tmax: float = float('inf'),
         s_churn: float = 150.0,
         s_noise: float = 1.04,
         num_steps: int = 200,
@@ -289,72 +358,12 @@ class EDMSampler(nn.Module):
 
         return x_next
     
-    def reverse_step(self, x: Tensor,
-                     x_classes: Tensor,
-                     fn: Callable, 
-                     net: nn.Module,
-                     sigma: float, 
-                     sigma_next: float,
-                     x_mask: Tensor=None,
-                     **kwargs) -> Tensor:
-        
-        "reverse sampling for encoding latents with Euler sampler"
-        denoised_cur = fn(x, x_classes, net=net, 
-                          sigma=sigma, inference=True, 
-                          cond_scale=self.cond_scale, 
-                          x_mask=x_mask, **kwargs)
-        
-        # first order
-        x0_t = (x - denoised_cur) / sigma
-        xt_next = sigma_next * x0_t + denoised_cur
-        
-        # second order
-        denoised_next = fn(xt_next, x_classes, net=net, 
-                           sigma=sigma_next, inference=True, 
-                           cond_scale=self.cond_scale, 
-                           x_mask=x_mask, **kwargs)
-        x0_t_next = (xt_next - denoised_next) / sigma_next
-        xt_next = x + (sigma_next - sigma) / 2 * (x0_t + x0_t_next)
-
-        return xt_next
-
-    def encode(self, x_input:Tensor, 
-               x_classes:Tensor,
-               fn: Callable, 
-               net: nn.Module, 
-               sigmas: Tensor, 
-               decode: bool=False,
-               **kwargs) -> Tensor:
-        
-        reversed_sigmas = sigmas.flip(0)[1:]
-
-        # Denoise to sample
-        x = x_input
-        for i in range(self.num_steps-1):
-            x = self.reverse_step(x, x_classes, 
-                                  fn=fn, net=net, 
-                                  sigma=reversed_sigmas[i], 
-                                  sigma_next=reversed_sigmas[i+1], 
-                                  **kwargs)
-            
-        if decode:
-            for j in range(self.num_steps-1):
-                x = self.step(x, x_classes, 
-                              fn=fn, net=net, 
-                              sigma=sigmas[j], 
-                              sigma_next=sigmas[j+1], 
-                              gamma=0.0, 
-                              use_heun=True, 
-                              **kwargs)
-        return x
-        
-
     def forward(self, noise: Tensor, 
                 x_classes: Tensor, 
                 fn: Callable, 
                 net: nn.Module, 
                 sigmas: Tensor, 
-                use_heun: bool=True,
+                use_heun: bool=False,
                 **kwargs) -> Tensor:
         
         # pay attention to this step
@@ -368,7 +377,7 @@ class EDMSampler(nn.Module):
         )
 
         # Denoise to sample
-        for i in range(self.num_steps-1):
+        for i in range(self.num_steps - 1):
             x = self.step(x, x_classes, 
                           fn=fn, net=net, 
                           sigma=sigmas[i], 

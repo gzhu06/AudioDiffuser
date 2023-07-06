@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /data: dcaseDev_complex.yaml
+  - override /data: youtubemusic_complex.yaml
   - override /model: diffunet_complex.yaml
   - override /callbacks: custom_exp2.yaml
   - override /trainer: gpu.yaml
@@ -12,9 +12,9 @@ defaults:
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["dcaseDev", "diffunet_complex", "conditional"]
-num_classes : 7
-audio_len: 352 # 32768 * 2
+tags: ["youtubemusic", "diffunet_complex", "conditional"]
+num_classes : 23
+audio_len: 480
 audio_frequency: 256
 seed: 12345
 
@@ -24,7 +24,7 @@ trainer:
 
 model:
   use_ema: False
-  audio_sample_rate: 22050
+  audio_sample_rate: 24000
   generated_frame_length: ${audio_len}
   generated_frequency: ${audio_frequency}
   generated_sample_class: ${num_classes}
@@ -32,11 +32,11 @@ model:
     lr: 4e-5
   net:
     _target_: src.models.components.backbones.unet2d.BaseUnet
-    dim: 128
+    dim: 256
     num_classes: ${num_classes}
     cfg: True
     cond_drop_prob: 0.1
-    dim_mults: [1, 2, 2, 2]
+    dim_mults: [1, 1, 2, 2]
     channels: 2
     num_resnet_blocks: 2
     resnet_groups: 8
@@ -62,14 +62,15 @@ model:
     num_steps : 50
 
 data:
-  batch_size: 12
+  batch_size: 4
   spec_factor: 0.3
   spec_abs_exponent: 0.5
   hop_length: 256
+  epoch_iters: 100
   num_frames: ${audio_len}
   n_fft: 510
 
 logger:
   wandb:
     tags: ${tags}
-    group: "diffaudio-dcaseDev-complex"
+    group: "diffaudio-ytbmusic-complex"
