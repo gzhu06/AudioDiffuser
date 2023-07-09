@@ -136,10 +136,11 @@ class DiffUnetComplexModule(LightningModule):
         
         stft_args = self.trainer.datamodule.stft_args
         device = next(self.net.parameters()).device
-
+        target_classes = list(range(self.generated_sample_class))
+        
         with torch.no_grad():
             window = torch.hann_window(stft_args['n_fft'], periodic=True).to(device)
-            target_class = torch.from_numpy(np.zeros(1).astype(int)).to(device)
+            target_class = torch.from_numpy(np.random.choice(target_classes, 1).astype(int)).to(device)
             diff_net = self.net_ema if self.use_ema else self.net
             
             # input data
@@ -177,7 +178,7 @@ class DiffUnetComplexModule(LightningModule):
         if self.trainer.is_global_zero:
             audio_save_dir = os.path.join(self.logger.save_dir, 'val_audio')
             os.makedirs(audio_save_dir, exist_ok=True)
-            audio_path = os.path.join(audio_save_dir, 'val_' + str(self.global_step) + '.wav')
+            audio_path = os.path.join(audio_save_dir, 'val_' + str(target_class[0].item()) + '_' + str(self.global_step) + '.wav')
             torchaudio.save(audio_path, audio_sample, self.audio_sample_rate)
 
     def test_step(self, batch: Any, batch_idx: int):
@@ -191,8 +192,8 @@ class DiffUnetComplexModule(LightningModule):
 
     def on_test_epoch_end(self):
         print('Generating test samples....................')
-        test_batch = 28 #28
-        audio_dur = 4
+        test_batch = 23 #28
+        audio_dur = 5.1
         iteration = self.total_test_samples // test_batch
         target_classes = list(range(self.generated_sample_class))
         test_sample_folder = os.path.join(self.logger.save_dir, 'test_samples')
@@ -210,10 +211,28 @@ class DiffUnetComplexModule(LightningModule):
 #                 target_class = torch.from_numpy(0*np.ones(test_batch).astype(int)).to(device)
                 target_class = torch.from_numpy((np.arange(test_batch)%self.generated_sample_class).astype(int)).to(device)
                 diff_net = self.net_ema if self.use_ema else self.net
+        
+                # input data
+                target_len = (self.generated_frame_length - 1) * stft_args['hop_length']
+                initial_noise = torch.randn(test_batch, target_len).to(device)
 
-                ########
-                freq_bins = stft_args['n_fft'] // 2 + 1
-                X_noise = torch.randn(test_batch, 2, freq_bins, self.generated_frame_length).to(device)
+                if self.norm_wav:
+                    normfac = initial_noise.abs().max()
+                    initial_noise = initial_noise / normfac
+
+                # STFT
+                X_noise = torch.stft(initial_noise, 
+                                     window=window, 
+                                     return_complex=True, 
+                                     normalized=True,
+                                     **stft_args)
+                X_noise = X_noise.unsqueeze(1)
+                X_noise = self.trainer.datamodule.spec_fwd(X_noise)
+                X_noise = torch.cat((X_noise.real, X_noise.imag), dim=1)
+
+#                 ########
+#                 freq_bins = stft_args['n_fft'] // 2 + 1
+#                 X_noise = torch.randn(test_batch, 2, freq_bins, self.generated_frame_length).to(device)
 
                 pcomplex_spec = self.sampler(X_noise, target_class,
                                              fn=self.diffusion.denoise_fn, 
@@ -232,7 +251,7 @@ class DiffUnetComplexModule(LightningModule):
                 for j in range(audio_samples.shape[0]):
                     audio_filename = 'test_'+str(target_class[j].item())+'_'+str(i*test_batch+j)+'.wav'
                     audio_path = os.path.join(test_sample_folder, audio_filename)
-                    torchaudio.save(audio_path, audio_samples[j, :audio_dur*self.audio_sample_rate].unsqueeze(0), 
+                    torchaudio.save(audio_path, audio_samples[j, :int(audio_dur*self.audio_sample_rate)].unsqueeze(0), 
                                     self.audio_sample_rate, bits_per_sample=16)
                 
     def configure_optimizers(self):

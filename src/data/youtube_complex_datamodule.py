@@ -34,10 +34,10 @@ class YoutubeDataset(Dataset):
         self.label_idx_dict = {'Piano': 0, 'Andrew Langdon': 1, 'Bach': 2, 'Baroque': 3, 
                                'Chillstep': 4, 'City of Gamers': 5, 'Cyberpunk 2077': 6, 
                                'Dark Techno': 7, 'Drum and Bass': 8, 'Dubstep Mix': 9, 
-                               'EDM': 10, 'French 79': 11, 'GHOSTS': 12, 'Hans Zimmer': 13, 
-                               'Jazz': 14, 'Kiasmos': 15, 'Lofi beats': 16, 'Ludovico Einaudi': 17, 
-                               'Ludwig Goransson': 18, 'Joachim Pastor Mix': 19, 'Metal': 20,
-                               'Techno Mix': 21, 'Synthwave Mix': 22}
+                               'French 79': 10, 'GHOSTS': 11, 'Hans Zimmer': 12, 
+                               'Jazz': 13, 'Kiasmos': 14, 'Lofi beats': 15, 'Ludovico Einaudi': 16, 
+                               'Ludwig Goransson': 17, 'Joachim Pastor Mix': 18, 'Metal': 19,
+                               'Synthwave Mix': 20}
             
     def __len__(self):
         return len(self.filenames)

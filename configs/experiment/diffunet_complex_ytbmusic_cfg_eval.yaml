@@ -4,23 +4,21 @@
 # python train.py experiment=example
 
 defaults:
-  - override /data: youtubemusic_complex.yaml
+  - override /data: dcaseDev_complex.yaml
   - override /model: diffunet_complex.yaml
-  - override /callbacks: custom_exp2.yaml
-  - override /trainer: gpu.yaml
 
 # all parameters below will be merged with parameters from default configurations set above
 # this allows you to overwrite only specified parameters
 
-tags: ["youtubemusic", "diffunet_complex", "conditional"]
-num_classes : 21
+tags: ["dcaseDev", "diffunet_complex", "conditional"]
+num_classes : 23
 audio_len: 496
 audio_frequency: 256
 seed: 12345
 
 trainer:
-  min_epochs: 3200
-  max_epochs: 3200
+  min_epochs: 1600
+  max_epochs: 1600
 
 model:
   use_ema: False
@@ -28,6 +26,7 @@ model:
   generated_frame_length: ${audio_len}
   generated_frequency: ${audio_frequency}
   generated_sample_class: ${num_classes}
+  total_test_samples: 115
   optimizer:
     lr: 4e-5
   net:
@@ -62,13 +61,7 @@ model:
     num_steps : 50
 
 data:
-  batch_size: 3
-  spec_factor: 0.3
-  spec_abs_exponent: 0.5
-  hop_length: 256
-  epoch_iters: 100
-  num_frames: ${audio_len}
-  n_fft: 510
+  batch_size: 25
 
 logger:
   wandb:

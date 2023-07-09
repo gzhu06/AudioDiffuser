@@ -78,6 +78,12 @@ Or evaluation:
 CUDA_VISIBLE_DEVICES=3 python src/eval.py ckpt_path='dummy.ckpt' +trainer.precision=16 experiment=example2.yaml
 ```
 
+Particularly, grid search for tuning hyperparameters during sampling:
+
+```bash
+CUDA_VISIBLE_DEVICES=2 python src/eval.py --multirun ckpt_path='ckpt.pt' +trainer.precision=16-mixed experiment=experiment.yaml model.sampler.param1=3,6,9 model.sampler.param2=1.0,1.1
+```
+
 <!-- ### Examples
 We list implemented "essential oils" for the audio diffuser, the following example recipes are trained and verified.
 
