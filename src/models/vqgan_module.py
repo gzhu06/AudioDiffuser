@@ -338,7 +338,7 @@ class VQGANModule(LightningModule):
 
 #         self.model_step(x[idx_shuffle[x.shape[0]//2]:], batch_idx, model_type='discriminator')
 
-    def on_train_epoch_end(self, outputs: List[Any]):
+    def on_train_epoch_end(self):
         # `outputs` is a list of dicts returned from `training_step()`
 
         # Warning: when overriding `training_epoch_end()`, lightning accumulates outputs from all batches of the epoch
@@ -372,7 +372,7 @@ class VQGANModule(LightningModule):
                 torchaudio.save(audio_gt_path, x_orig[0].cpu(), self.sample_rate)
                 torchaudio.save(audio_path, x_recon[0].cpu(), self.sample_rate)
             
-    def on_validation_epoch_end(self, outputs: List[Any]):
+    def on_validation_epoch_end(self):
 
         pass
 

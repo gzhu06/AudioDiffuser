@@ -4,7 +4,7 @@
 # python train.py experiment=example
 
 defaults:
-  - override /datamodule: vctk16k.yaml
+  - override /data: vctk16k.yaml
   - override /model: vqautoencoder.yaml
   - override /callbacks: custom_exp2.yaml
   - override /trainer: gpu.yaml
